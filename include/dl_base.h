@@ -71,16 +71,16 @@
 typedef unsigned char   DL_UINT8;
 typedef char            DL_SINT8;
 typedef unsigned short	DL_UINT16;
-typedef short			DL_SINT16;
-typedef unsigned int	DL_UINT32;
-typedef int				DL_SINT32;
+typedef short			      DL_SINT16;
+typedef unsigned int	  DL_UINT32;
+typedef int				      DL_SINT32;
 #elif defined DL_UNIX
 typedef unsigned char   DL_UINT8;
 typedef char            DL_SINT8;
-typedef unsigned int	DL_UINT16;
-typedef int 			DL_SINT16;
-typedef unsigned long	DL_UINT32;
-typedef long			DL_SINT32;
+typedef unsigned int	  DL_UINT16;
+typedef int 			      DL_SINT16;
+typedef unsigned long	  DL_UINT32;
+typedef long			      DL_SINT32;
 #else
 // Unsupported platform
 #error Platform Not Supported
@@ -115,16 +115,16 @@ typedef DL_UINT32 DL_UCHAR; // unicode character
 // CONSTANTS (ASCII CHARACTERS)
 //
 
-#define kDL_ASCII_NULL			0x00
+#define kDL_ASCII_NULL		0x00
 #define kDL_ASCII_HT			0x09
 #define kDL_ASCII_LF			0x0A
 #define kDL_ASCII_CR			0x0D
 #define kDL_ASCII_SP			0x20
 
-#define kDL_ASCII_QUOTE			0x22
-#define kDL_ASCII_APOSTROPHE	0x27
+#define kDL_ASCII_QUOTE			    0x22
+#define kDL_ASCII_APOSTROPHE	  0x27
 #define kDL_ASCII_FORWARDSLASH	0x2F
-#define kDL_ASCII_BACKSLASH		0x5C
+#define kDL_ASCII_BACKSLASH		  0x5C
 
 /******************************************************************************/
 //

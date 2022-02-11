@@ -101,15 +101,29 @@ DL_ERR DL_ISO8583_MSG_SetField_Bin ( DL_UINT16       iField,
 {
 	DL_ERR    err = kDL_ERR_NONE;
 	DL_UINT8 *ptr = NULL;
+	DL_UINT8 fieldExist = 0;
 
 	if ( iField > kDL_ISO8583_MAX_FIELD_IDX )
 		return kDL_ERR_OTHER;
 
-	/* allocate memory for the field content */
+	// Should we check for overwrite? Nope
+	// if ( !DL_ISO8583_MSG_HaveField(iField,ioMsg)) {
+	// 	/* allocate memory for the field content */
+		
+	// 	err = _DL_ISO8583_MSG_AllocField(iField,_iDataLen,ioMsg,&ptr);
+
+	// } else {
+	// 	printf("Old pointer %p.\n",&(ioMsg->field[iField].ptr));
+	// 	DL_UINT8 *ptr = &ioMsg->field[iField].ptr;
+	// 	printf("Field already present. Filling pointer %p\n",&ptr);
+	// }
+
 	err = _DL_ISO8583_MSG_AllocField(iField,_iDataLen,ioMsg,&ptr);
 
 	if ( !err )
-	{
+	{	
+
+		//printf("Old pointer %p. New %p.\n",&(ioMsg->field[iField].ptr),&ptr);
 		DL_MEM_memcpy(ptr,_iData,_iDataLen);
 		/* null terminate */
 		ptr[_iDataLen] = kDL_ASCII_NULL;
@@ -211,6 +225,10 @@ DL_ERR DL_ISO8583_MSG_Pack ( const DL_ISO8583_HANDLER *iHandler,
 		{
 			/* pack field */
 			err = _DL_ISO8583_FIELD_Pack(fieldIdx,iMsg,iHandler,&curPtr);
+			if (err){
+				printf("Error on packing field %d, data: %p.\n",fieldIdx,&curPtr);
+				printf("Field info: %d, %s, %p.\n",iMsg->field[fieldIdx].len,iMsg->field[fieldIdx].ptr,&iMsg->field[fieldIdx].ptr);
+			}
 		}
 	} /* end-for(i) */
 

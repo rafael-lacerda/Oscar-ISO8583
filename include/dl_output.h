@@ -1,6 +1,6 @@
 /******************************************************************************/
 /*                                                                            */
-/* Copyright (C) 2005-2007 Oscar Sanderson                                    */
+/* Copyright (C) 2007-2007 Oscar Sanderson                                    */
 /*                                                                            */
 /* This software is provided 'as-is', without any express or implied          */
 /* warranty.  In no event will the author(s) be held liable for any damages   */
@@ -21,56 +21,33 @@
 /* 3. This notice may not be removed or altered from any source distribution. */
 /*                                                                            */
 /******************************************************************************/
-
-#include "dl_mem.h"
-
+/*                                                                            */
+/* Output Functions                                                           */
+/*                                                                            */
 /******************************************************************************/
 
-// allocates a chunk of memory
-// returns: error code
-DL_ERR DL_MEM_malloc ( DL_UINT32   iNumBytes,
-					   void      **oPtr )
-{
-	DL_ERR err = 0;
+#ifndef __INC_DL_OUTPUT
+#define __INC_DL_OUTPUT
 
-	err = DL_MEM_callocWithInit(1,iNumBytes,oPtr);
+#include "dl_base.h"
 
-	return err;
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
+/******************************************************************************/
 
-/* based on calloc - but does not indicate an error if 0 items requested
-   NB also init's the array elements to 0 on success
-   returns: 1 if ok / 0 otherwise */
-DL_ERR DL_MEM_callocWithInit ( DL_UINT32   numItems,
-							   size_t      itemSize,
-							   void      **out )
-{
-	DL_ERR err = 0;
-
-	/* init output params */
-	*out = NULL;
-
-	/* attempt to allocate memory - if numItems > 0 */
-	if ( numItems > 0 )
-	{
-		/* allocate array - with error check */
-		if ( (*out = (void*)calloc(numItems,itemSize)) == NULL )
-		{
-			err = kDL_ERR_MEM_ALLOC;
-		}
-		else /* init array elements (to 0) */
-		{
-			DL_MEM_memset(*out,0,numItems*itemSize);
-		}
-	}
-
-	/* cleanup (on error) */
-	if ( err )
-	{
-		DL_MEM_free(*out);
-	}
-
-	return err;
-}
+/* outputs the hex dump of the specified data (iPtr/iNumBytes) to the */
+/* specified stream (iOutFile)                                        */
+/* NB '_iEolStr' defaults to '\n' if NULL                             */
+/* returns: n/a                                                       */
+void DL_OUTPUT_Hex ( FILE           *iOutFile,
+					 const char     *_iEolStr,
+					 const DL_UINT8 *iPtr,
+					 DL_UINT32       iNumBytes );
 
 /******************************************************************************/
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __INC_DL_OUTPUT */

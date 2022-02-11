@@ -623,3 +623,17 @@ static void unescape_string ( DL_CHAR  iEscCh,
 }
 
 /******************************************************************************/
+
+
+unsigned char ASCIItoEBCDIC(const unsigned char c)
+{
+       return a2e[c];
+}
+
+unsigned char EBCDICtoASCII(const unsigned char c)
+{
+       return e2a[c];
+}
+
+
+/******************************************************************************/
