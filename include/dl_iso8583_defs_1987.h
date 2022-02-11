@@ -22,31 +22,27 @@
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
-/* ISO8583 field packers / unpackers                                          */
+/* dl_iso8583_defs_1987.h - ISO8583 1987 Definitions                          */
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef __INC_DL_ISO8583_FIELDS
-#define __INC_DL_ISO8583_FIELDS
+#ifndef __INC_DL_ISO8583_DEFS_1987
+#define __INC_DL_ISO8583_DEFS_1987
 
 #include "dl_base.h"
-#include "dl_err.h"
-#include "dl_mem.h"
-
 #include "dl_iso8583_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /******************************************************************************/
 
-DL_ERR _DL_ISO8583_FIELD_Pack ( DL_UINT16                  iField,
-								const DL_ISO8583_MSG      *iMsg,
-								const DL_ISO8583_HANDLER  *iHandler,
-								DL_UINT8                 **ioPtr );
-
-DL_ERR _DL_ISO8583_FIELD_Unpack ( DL_UINT16                  iField,
-								  DL_ISO8583_MSG            *ioMsg,
-								  const DL_ISO8583_HANDLER  *iHandler,
-								  DL_UINT8                 **ioPtr );
+// sets the specified handler
+void DL_ISO8583_DEFS_1987_GetHandler ( DL_ISO8583_HANDLER *oHandler );
 
 /******************************************************************************/
+#ifdef __cplusplus
+}
+#endif
 
-#endif /* __INC_DL_ISO8583_FIELDS */
+#endif /* __INC_DL_ISO8583_DEFS_1987 */

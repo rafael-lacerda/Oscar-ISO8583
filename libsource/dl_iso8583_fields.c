@@ -28,6 +28,8 @@
 
 #include "dl_iso8583_fields.h"
 
+DL_UINT16 EBCDIC = 0;
+
 /******************************************************************************/
 //
 // FIELD HANDLER PROTOTYPES
@@ -75,6 +77,10 @@ DL_ERR _unpack_iso_BITMAP ( DL_UINT16                    iField,
 						    DL_ISO8583_MSG              *ioMsg,
 						    const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
 						    DL_UINT8                   **ioPtr );
+
+DL_ERR _hexstr_to_bytes (	const char *hexStr,
+                     		unsigned char *output,
+                     		unsigned int *outputLen);
 
 /******************************************************************************/
 //
@@ -298,6 +304,13 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 	/* variable length handling */
 	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr);
 
+	if (EBCDIC) {
+		for (int i = 0; i < actLen; i++) {
+			//printf("%x %x\n", dataPtr[i], ASCIItoEBCDIC(dataPtr[i]));
+			dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+		}
+	}
+
 	if ( !err )
 	{
 		if ( actLen > reqLen ) /* too long */
@@ -372,7 +385,25 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 	DL_UINT32             actLen   = fieldPtr->len;
 	DL_UINT8             *dataPtr  = fieldPtr->ptr;
 	DL_UINT32             reqLen   = iFieldDefPtr->len;
+	DL_UINT8              dataPtrBytes[(actLen/2)+1];
+	DL_UINT32			 *actLenPtr = &actLen;
 
+	
+	if (iField == 0) {
+		if (EBCDIC)	{
+			for (int i = 0; i < actLen; i++) {
+				dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+			}
+		}
+	/* correct binary fields that shoud be recorded as bytes */
+	}  else  {
+		err = _hexstr_to_bytes(dataPtr,dataPtrBytes,actLenPtr);
+		dataPtr = dataPtrBytes;
+		if ( err ){
+			return err;
+		}
+	}
+	
 	/* variable length handling */
 	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr);
 
@@ -593,22 +624,51 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 {
 	DL_ERR    err    = kDL_ERR_NONE;
 	DL_UINT8 *tmpPtr = *ioPtr;
-
+	DL_UINT8 dataPtr[4];
+	//printf("%x%x%x\n",*(tmpPtr-1),*tmpPtr,*(tmpPtr+1));
 	switch ( iVarLenType )
 	{
 		case kDL_ISO8583_FIXED:
 			/* do nothing */
 			break;
 		case kDL_ISO8583_LLVAR:
-			iActLen   %= 100;
+			// printf("%lu\n",iActLen/10);
+			iActLen  %= 100;
+			dataPtr[0] = (iActLen/10 + '0') ;
+			dataPtr[1] = (iActLen%10 + '0') ;
+			// printf("%lu\n",iActLen%10);
+			// printf("Aqui %x\n",dataPtr);
+			//printf("%u\n",tmpPtr);
+			//*tmpPtr++    = output_bcd_byte(iActLen);
+
+			if (EBCDIC) {
+				for (int i = 0; i < 4; i++) {
+					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+				}
+			}
+
+			DL_MEM_memcpy(tmpPtr,&dataPtr, 2);
+			tmpPtr += 2;
 			*ioReqLen  = iActLen;
-			*tmpPtr++    = output_bcd_byte(iActLen);
+			// *tmpPtr++    = output_bcd_byte(iActLen);
 			break;
 		case kDL_ISO8583_LLLVAR:
 			iActLen   %= 1000;
+			dataPtr[0] = (iActLen/100 + '0') ;
+			dataPtr[1] = ((iActLen%100)/10 + '0') ;
+			dataPtr[2] = (((iActLen%100)%10) + '0') ;
+
+			if (EBCDIC) {
+				for (int i = 0; i < 4; i++) {
+					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+				}
+			}
+
+			DL_MEM_memcpy(tmpPtr,&dataPtr, 3);
+			tmpPtr += 3;
 			*ioReqLen  = iActLen;
-			*tmpPtr++    = output_bcd_byte(iActLen/100);
-			*tmpPtr++    = output_bcd_byte(iActLen%100);
+			// *tmpPtr++    = output_bcd_byte(iActLen/100);
+			// *tmpPtr++    = output_bcd_byte(iActLen%100);
 			break;
 		case kDL_ISO8583_LLLLVAR:
 			iActLen   %= 10000;
@@ -664,5 +724,38 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 	return err;
 }
+
+/******************************************************************************/
+
+
+DL_ERR _hexstr_to_bytes(const char *hexStr,
+                     	unsigned char *output,
+                    	unsigned int *outputLen) 
+{
+	size_t len = strlen(hexStr);
+	if (len % 2 != 0) {
+		return -1;
+	}
+	size_t finalLen = len / 2;
+	*outputLen = finalLen;
+	for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
+		if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
+		goto convert;
+		} else {
+		if ((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) {
+			goto convert;
+		} else {
+			*outputLen = 0;
+			return -1;
+		}
+		}
+	convert:
+		output[outIdx] =
+			(hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
+	}
+	output[finalLen] = '\0';
+	return 0;
+}
+
 
 /******************************************************************************/
