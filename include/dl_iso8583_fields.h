@@ -49,6 +49,10 @@ DL_ERR _DL_ISO8583_FIELD_Unpack ( DL_UINT16                  iField,
 								  const DL_ISO8583_HANDLER  *iHandler,
 								  DL_UINT8                 **ioPtr );
 
+DL_ERR _hexstr_to_bytes	(	const char *hexStr,
+                     		unsigned char *output,
+                    		unsigned int *outputLen);
+
 /******************************************************************************/
 
 #endif /* __INC_DL_ISO8583_FIELDS */

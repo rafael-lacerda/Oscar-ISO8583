@@ -36,8 +36,8 @@ link_directories(${TARGET_DIR}/lib)
 # Project Compilation Flags
 #
 set(PROJECT_CXXFLAGS "-DTO_EBCDIC")
-add_compile_options("-DTO_EBCDIC")
-set(CMAKE_CXX_FLAGS "-g -DTO_EBCDIC ${PROJECT_CXXFLAGS}")
+# add_compile_options("-DTO_EBCDIC")
+set(CMAKE_CXX_FLAGS "-g ${PROJECT_CXXFLAGS}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${PROJECT_CXXFLAGS}")

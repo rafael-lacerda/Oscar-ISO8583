@@ -350,6 +350,14 @@ DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 	DL_UINT8  *tmpPtr     = *ioPtr;
 	DL_UINT16  size       = 0;
 	DL_UINT8  *tmpDataPtr = NULL;
+	DL_UINT32    actLen   = iFieldDefPtr->len;
+
+	if (EBCDIC) {
+		for (int i = 0; i < actLen; i++) {
+			//printf("%x %x\n", dataPtr[i], ASCIItoEBCDIC(dataPtr[i]));
+			tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
+		}
+	}
 
 	/* variable length handling */
 	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
@@ -449,6 +457,26 @@ DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 
 	/* variable length handling */
 	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+
+	if (iField == 0) {
+		if (EBCDIC)	{
+			for (int i = 0; i < size; i++) {
+				tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
+			}
+		}
+		for (int i = 0; i < size; i++) {
+			printf("%x ", *(tmpPtr+i));
+		}
+		printf("\n");
+	}
+	/* correct binary fields that shoud be recorded as bytes */
+	// }  else  {
+	// 	err = _hexstr_to_bytes(dataPtr,dataPtrBytes,actLenPtr);
+	// 	dataPtr = dataPtrBytes;
+	// 	if ( err ){
+	// 		return err;
+	// 	}
+	// }
 
 	/* allocate field */
 	if ( !err )
@@ -700,9 +728,18 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 	/* init outputs */
 	*oLen = iMaxValue;
 
+	//printf("%x\n",*tmpPtr);
+
 	if ( kDL_ISO8583_FIXED != iVarLenDigits )
 	{
 		*oLen = 0;
+
+		printf("Len Bytes to read: ");
+
+		for (int i = 0; i < iVarLenDigits; i++) {
+			printf("%x ", *(tmpPtr+i));
+		}
+		printf("\n");
 
 		if ( iVarLenDigits % 2 )
 			iVarLenDigits++;
@@ -719,6 +756,12 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 		/* limit if exceeds max */
 		*oLen = MIN(iMaxValue,*oLen);
 	}
+
+	printf("Read size is: %d bytes.\n", *oLen);
+	for (int i = 0; i < *oLen; i++) {
+		printf("%x ", *(tmpPtr+i));
+	}
+	printf("\n");
 
 	*ioPtr = tmpPtr;
 
@@ -756,6 +799,36 @@ DL_ERR _hexstr_to_bytes(const char *hexStr,
 	output[finalLen] = '\0';
 	return 0;
 }
+
+DL_ERR _bytes_to_hexstr(const char *hexStr,
+                     	unsigned char *output,
+                    	unsigned int *outputLen) 
+{
+	size_t len = strlen(hexStr);
+	if (len % 2 != 0) {
+		return -1;
+	}
+	size_t finalLen = len / 2;
+	*outputLen = finalLen;
+	for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
+		if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
+		goto convert;
+		} else {
+		if ((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) {
+			goto convert;
+		} else {
+			*outputLen = 0;
+			return -1;
+		}
+		}
+	convert:
+		output[outIdx] =
+			(hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
+	}
+	output[finalLen] = '\0';
+	return 0;
+}
+
 
 
 /******************************************************************************/

@@ -190,12 +190,12 @@ DL_CHAR *DL_STR_ReadToBuffer ( const DL_CHAR *iStr,
 
 /******************************************************************************/
 
-unsigned char ASCIItoEBCDIC(const unsigned char c);   /* A2E.C          */
+DL_UINT8 ASCIItoEBCDIC(const unsigned char c);   /* A2E.C          */
 
-unsigned char EBCDICtoASCII(const unsigned char c);   /* A2E.C          */
+DL_UINT8 EBCDICtoASCII(const unsigned char c);   /* A2E.C          */
 
 // IBM
-static unsigned char a2e[256] = {
+static DL_UINT8 a2e[256] = {
          0,  1,  2,  3, 26,  9, 26,127, 26, 26, 26, 11, 12, 13, 14, 15,
         16, 17, 18, 19, 60, 61, 50, 38, 24, 25, 63, 39, 28, 29, 30, 31, 
         64, 90,127,123, 91,108, 80,125, 77, 93, 92, 78,107, 96, 75, 97, // 90 was 79 irregularity
@@ -215,7 +215,7 @@ static unsigned char a2e[256] = {
        
 };
 
-static unsigned char e2a[256] = {
+static DL_UINT8 e2a[256] = {
          0,  1,  2,  3, 26,  9, 26,127, 26, 26, 26, 11, 12, 13, 14, 15,
         16, 17, 18, 19, 26, 26,  8, 26, 24, 25, 26, 26, 28, 29, 30, 31,
         26, 26, 26, 26, 26, 10, 23, 27, 26, 26, 26, 26, 26,  5,  6,  7,
