@@ -269,10 +269,10 @@ DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 	while ( !err && (curFieldIdx < maxFieldIdx) && (curPtr < endPtr) && !haveBitmap )
 	{	
 		//printf("Reading field 0...\n");
+		printf("Reading field %d..\n",curFieldIdx);
 		err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
 		if ( DL_ISO8583_IS_BITMAP(iHandler->fieldArr[curFieldIdx].fieldType) )
 			haveBitmap = 1;
-		printf("Reading field %d..\n",curFieldIdx);
 		curFieldIdx++;
 		
 

@@ -22,7 +22,7 @@ set(TARGET_LIBRARY_NAME ${PROJECT_NAME})
 #
 file(GLOB HEADER_FILES ${PROJECT_SOURCE_DIR}/include/*.h)
 file(GLOB LIBSRC_FILES ${PROJECT_SOURCE_DIR}/libsource/*.c)
-file(GLOB MAIN_FILE ${PROJECT_SOURCE_DIR}/source/test.cpp)
+file(GLOB MAIN_FILE ${PROJECT_SOURCE_DIR}/source/main.cpp)
 
 
 #

@@ -16,6 +16,8 @@ std::string hexStr(const DL_UINT8 *iPtr, DL_UINT32 iNumBytes );
 int HexStringToBytes(const char *hexStr, unsigned char *output, unsigned int *outputLen);
 unsigned char * hex2bytes(const char *hexStr);
 void hex2bin(const char* src, unsigned char* target);
+int asc2bcd(unsigned char * AscBuf, unsigned char * BcdBuf, int Len);
+unsigned char hex2bcd (unsigned char x);
 
 
 inline unsigned char *uc_str(char *s){
@@ -35,7 +37,7 @@ int main ( void )
 	/* get ISO-8583 1993 handler */
 	DL_ISO8583_DEFS_1987_GetHandler(&isoHandler);
 	
-	char hexStr[] = "303130307eff460128e1f30af1f63233303635303232383135383030353230303030303030303030303030303030303130303030303030303030303130303030303030303030303130323037313432363031363130303030303036313935343030303433333030383131323630313032303733303032303230373032303735393939303531303031f0f6303132333435f3f7323330363530323238313538303035323d33303032323036303030303034303730303030303735363536353630383736393132333435363738313233343536373839313233343535204f20526166616f2065682062616f206d65736d6f212e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2ef0f0f75238303032545638343038343039383651da3e15599c3dd4f2f1f435463241303230383430383230323538303038343037413030303030303030343130313039353035303030303030303030303941303332313035323439433031303039463032303630303030303030303333303039463130313230313130413030303030303434303030444143313030303030303030303030303030303039463141303230383430394632363038363037433744363433313342363246423946323730313830394633333033453045384538394633343033343130333032394633363032303034313946333730343131463644373939f0f3f73031333330313239353030314930495939314a55514c57445a434c515250594e4450414a44f0f2f1303030303030303030303530303834303930323130f0f0f94d434730313133395a";
+	char hexStr[] = "30313030feff460128e1f30a00000000000000023136323330363530323238313538303035323030303030303030303030303030303030313030303030303030303030313030303030303030303030313032303731343236303136313030303030303631393534303030343333303038313132363031303230373330303230323037303230373539393930353130303130363031323334353337323330363530323238313538303035323d333030323230363030303030343037303030303037353635363536303837363931323334353637383132333435363738393132333435354f20526166616f2065682062616f206d65736d6f2120202e2e2e2e2e2e2e2e2e2e2e2e2e205553413030375238303032545638343038343039383651da3e15599c3dd43130375f2a020840820258008407a0000000041010950500000000009a032105249c01009f02060000000033009f10120110a00000044000dac100000000000000009f1a0208409f2608607c7d64313b62fb9f2701809f3303e0e8e89f34034103029f360200419f370411f6d7993033373031333330313239353030314930495939314a55514c57445a434c515250594e4450414a443032313030303030303030303035303038343039303231303030394d434730313133395a3035303031303033303030303230333732303232303230373134323630313433333030383030303031323334353132333435363738";
 	DL_UINT8 * hexStr1 = (DL_UINT8*) hexStr;
 	DL_UINT16 strLen = strlen(hexStr)+1;
 	DL_UINT16 strLen1 = sizeof(*hexStr1)/sizeof(hexStr1);
@@ -43,7 +45,11 @@ int main ( void )
 	std::cout << strLen << " - " << strLen1 <<  std::endl;
 	
 	//unsigned int * lengthPtr = &length;
-	hex2bin(hexStr,outBuff);
+	//hex2bin(hexStr,outBuff);
+	asc2bcd(uc_str(hexStr),outBuff,strLen);
+
+	printf("\nISO8583 Hex Buf:%s\n", hexStr);
+	printf("\nISO8583 Req Buf:%s\n", outBuff);
 
 	// for (int i = 0; i < strLen; i+=2) {
 	// 	char hex[3];
@@ -66,7 +72,7 @@ int main ( void )
 	// int num = (int)strtol(hex, NULL, 16);       // number base 16
 	// printf("%c\n", num);                        // print it as a char
 	// printf("%d\n", num);                        // print it as decimal
-	// printf("%X\n", num);  
+	// printf("%X\n", num);
 
 	return 0;
 }
@@ -152,4 +158,60 @@ void hex2bin(const char* src, unsigned char* target)
     *(target++) = char2int(*src)*16 + char2int(src[1]);
     src += 2;
   }
+}
+
+int asc2bcd(unsigned char * AscBuf, unsigned char * BcdBuf, int Len)
+{
+    int  i;
+    unsigned char str[2] = {0};
+
+    for (i = 0; i < Len; i += 2)
+    {
+        if ((AscBuf[i] >= 'a') && (AscBuf[i] <= 'f'))
+        {
+            str[0] = AscBuf[i] - 'a' + 0x0A;
+        }
+        else if ((AscBuf[i] >= 'A') && (AscBuf[i] <= 'F'))
+        {
+            str[0] = AscBuf[i] - 'A' + 0x0A;
+        }
+        else if (AscBuf[i] >= '0')
+        {
+            str[0] = AscBuf[i] - '0';
+        }
+        else
+        {
+            str[0] = 0;
+        }
+
+        if ((AscBuf[i + 1] >= 'a') && (AscBuf[i + 1] <= 'f'))
+        {
+            str[1] = AscBuf[i + 1] - 'a' + 0x0A;
+        }
+        else if ((AscBuf[i + 1] >= 'A') && (AscBuf[i + 1] <= 'F'))
+        {
+            str[1] = AscBuf[i + 1] - 'A' + 0x0A;
+        }
+        else if (AscBuf[1] >= '0')
+        {
+            str[1] = AscBuf[i + 1] - '0';
+        }
+        else
+        {
+            str[1] = 0;
+        }
+
+        BcdBuf[i / 2] = (str[0] << 4) | (str[1] & 0x0F);
+    }
+
+    return 0;
+}
+
+
+unsigned char hex2bcd (unsigned char x)
+{
+    unsigned char y;
+    y = (x / 10) << 4;
+    y = y | (x % 10);
+    return (y);
 }

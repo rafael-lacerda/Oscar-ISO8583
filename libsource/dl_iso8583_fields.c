@@ -465,7 +465,7 @@ DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 			}
 		}
 		for (int i = 0; i < size; i++) {
-			printf("%x ", *(tmpPtr+i));
+			printf("%c ", *(tmpPtr+i));
 		}
 		printf("\n");
 	}
@@ -724,6 +724,7 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 {
 	DL_ERR    err    = kDL_ERR_NONE;
 	DL_UINT8 *tmpPtr = (DL_UINT8*)*ioPtr;
+	DL_UINT8 dataPtr[4];
 
 	/* init outputs */
 	*oLen = iMaxValue;
@@ -737,22 +738,41 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 		printf("Len Bytes to read: ");
 
 		for (int i = 0; i < iVarLenDigits; i++) {
-			printf("%x ", *(tmpPtr+i));
+			printf("%d ", *(tmpPtr+i));
 		}
 		printf("\n");
 
-		if ( iVarLenDigits % 2 )
-			iVarLenDigits++;
+		if ( iVarLenDigits == 2 ) {
 
-		while ( iVarLenDigits > 0 )
-		{
-			*oLen = (*oLen * 100) +
-					((((int)(*tmpPtr) >> 4) & 0xf) * 10) +
-					((int)(*tmpPtr) & 0xf);
-			iVarLenDigits -= 2;
-			tmpPtr++;
-		} /* end-while */
+			dataPtr[0] = (*tmpPtr - '0');
+			dataPtr[1] = (*(tmpPtr+1) - '0');
+			*oLen = (*tmpPtr - '0')*10 + (*(tmpPtr+1) - '0');
+			printf("%d %d\n", dataPtr[0],dataPtr[1]);
+			tmpPtr += 2;
 
+		} else if ( iVarLenDigits == 3 ) {
+
+			dataPtr[0] = (*tmpPtr - '0');
+			dataPtr[1] = (*(tmpPtr+1) - '0');
+			dataPtr[2] = (*(tmpPtr+2) - '0');
+			*oLen = (*tmpPtr - '0')*100 + (*(tmpPtr+1) - '0')*10 + (*(tmpPtr+2) - '0');
+			tmpPtr += 3;
+
+		}
+
+		// if ( iVarLenDigits % 2 )
+		// 	iVarLenDigits++;
+
+		// while ( iVarLenDigits > 0 )
+		// {
+		// 	*oLen = (*oLen * 100) +
+		// 			((((int)(*tmpPtr) >> 4) & 0xf) * 10) +
+		// 			((int)(*tmpPtr) & 0xf);
+		// 	iVarLenDigits -= 2;
+		// 	tmpPtr++;
+		// } /* end-while */
+
+		printf("Read size Before: %d bytes.\n", *oLen);
 		/* limit if exceeds max */
 		*oLen = MIN(iMaxValue,*oLen);
 	}
