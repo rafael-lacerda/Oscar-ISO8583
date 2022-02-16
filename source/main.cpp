@@ -65,6 +65,8 @@ int main ( void )
 		printf("Error %d ocurred.\n",error);
 	}
 
+	DL_ISO8583_MSG_Dump(stdout,NULL,&isoHandler,&isoMsg);
+
 	DL_ISO8583_MSG_Free(&isoMsg);
 	// std::cout << hexStr(outBuff,strLen) << std::endl;
 
