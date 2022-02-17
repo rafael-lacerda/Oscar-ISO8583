@@ -36,6 +36,8 @@
 #include "dl_iso8583_common.h"
 #include "dl_iso8583_fields.h"
 
+extern DL_UINT16 DEBUG;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

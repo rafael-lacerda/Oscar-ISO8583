@@ -29,6 +29,7 @@
 #include "dl_iso8583_fields.h"
 
 DL_UINT16 EBCDIC = 0;
+DL_UINT16 DEBUG = 0;
 
 /******************************************************************************/
 //
@@ -350,17 +351,19 @@ DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 	DL_UINT8  *tmpPtr     = *ioPtr;
 	DL_UINT16  size       = 0;
 	DL_UINT8  *tmpDataPtr = NULL;
-	DL_UINT32    actLen   = iFieldDefPtr->len;
-
-	if (EBCDIC) {
-		for (int i = 0; i < actLen; i++) {
-			//printf("%x %x\n", dataPtr[i], ASCIItoEBCDIC(dataPtr[i]));
-			tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
-		}
-	}
+	//DL_UINT32    actLen   = iFieldDefPtr->len;
 
 	/* variable length handling */
 	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+
+	if ( !err ) 
+	{
+		if (EBCDIC) {
+			for (int i = 0; i < size; i++) {
+				tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
+			}
+		}
+	}
 
 	/* allocate field */
 	if ( !err )
@@ -405,11 +408,17 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 		}
 	/* correct binary fields that shoud be recorded as bytes */
 	}  else  {
+		// printf("Before: ");
+		// fwrite(dataPtr, actLen, 1, stdout);
+		// printf("\n\n");
+
 		err = _hexstr_to_bytes(dataPtr,dataPtrBytes,actLenPtr);
 		dataPtr = dataPtrBytes;
-		if ( err ){
-			return err;
-		}
+
+		// printf("Later: ");
+		// fwrite(dataPtr, actLen, 1, stdout);
+		// printf("\n\n");
+		if ( err ) return err;
 	}
 	
 	/* variable length handling */
@@ -454,9 +463,11 @@ DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 	DL_UINT8  *tmpPtr     = *ioPtr;
 	DL_UINT16  size       = 0;
 	DL_UINT8  *tmpDataPtr = NULL;
+	
 
 	/* variable length handling */
 	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+	// printf("Size is: %u\n",size);
 
 	if (iField == 0) {
 		if (EBCDIC)	{
@@ -464,31 +475,48 @@ DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 				tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 			}
 		}
-		for (int i = 0; i < size; i++) {
-			printf("%c ", *(tmpPtr+i));
+			/* allocate field */
+		if ( !err )
+			err = _DL_ISO8583_MSG_AllocField(iField,size,ioMsg,&tmpDataPtr);
+
+		if ( !err )
+		{
+			DL_MEM_memcpy(tmpDataPtr,tmpPtr,size); 
+			tmpPtr     += size;
+			tmpDataPtr += size;
+
+			*tmpDataPtr = kDL_ASCII_NULL; /* null terminate */
 		}
-		printf("\n");
-	}
-	/* correct binary fields that shoud be recorded as bytes */
-	// }  else  {
-	// 	err = _hexstr_to_bytes(dataPtr,dataPtrBytes,actLenPtr);
-	// 	dataPtr = dataPtrBytes;
-	// 	if ( err ){
-	// 		return err;
-	// 	}
-	// }
 
-	/* allocate field */
-	if ( !err )
-		err = _DL_ISO8583_MSG_AllocField(iField,size,ioMsg,&tmpDataPtr);
+	} else {
 
-	if ( !err )
-	{
-		DL_MEM_memcpy(tmpDataPtr,tmpPtr,size); 
-		tmpPtr     += size;
-		tmpDataPtr += size;
+		DL_UINT16  tmPsize = size*2;
 
-		*tmpDataPtr = kDL_ASCII_NULL; /* null terminate */
+		/* allocate field */
+		if ( !err )
+			err = _DL_ISO8583_MSG_AllocField(iField,tmPsize,ioMsg,&tmpDataPtr);
+
+		if ( !err ) 
+		{
+			if (DEBUG == 2)
+			{
+				printf("Before: ");
+				fwrite(tmpPtr, size, 1, stdout);
+				printf("\n\n");
+			}
+			
+			err = _bcd_to_asc(tmpPtr,tmpDataPtr,tmPsize);
+			tmpPtr     += size;
+			tmpDataPtr     += tmPsize;
+			*tmpDataPtr = kDL_ASCII_NULL; /* null terminate */
+
+			if (DEBUG == 2)
+			{
+				printf("Later: ");
+				fwrite(tmpDataPtr, tmPsize, 1, stdout);
+				printf("\n\n");
+			}
+		}
 	}
 
 	*ioPtr = tmpPtr;
@@ -670,7 +698,7 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 			//*tmpPtr++    = output_bcd_byte(iActLen);
 
 			if (EBCDIC) {
-				for (int i = 0; i < 4; i++) {
+				for (int i = 0; i < kDL_ISO8583_LLVAR; i++) {
 					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
 				}
 			}
@@ -687,7 +715,7 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 			dataPtr[2] = (((iActLen%100)%10) + '0') ;
 
 			if (EBCDIC) {
-				for (int i = 0; i < 4; i++) {
+				for (int i = 0; i < kDL_ISO8583_LLLVAR; i++) {
 					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
 				}
 			}
@@ -735,19 +763,28 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 	{
 		*oLen = 0;
 
-		printf("Len Bytes to read: ");
-
-		for (int i = 0; i < iVarLenDigits; i++) {
-			printf("%d ", *(tmpPtr+i));
+		if (DEBUG)
+		{
+			printf("\tLen Bytes to read: ");
+			for (int i = 0; i < iVarLenDigits; i++) {
+				printf("%d ", *(tmpPtr+i));
+			}
+			printf("\n");
 		}
-		printf("\n");
 
 		if ( iVarLenDigits == 2 ) {
 
 			dataPtr[0] = (*tmpPtr - '0');
 			dataPtr[1] = (*(tmpPtr+1) - '0');
-			*oLen = (*tmpPtr - '0')*10 + (*(tmpPtr+1) - '0');
-			printf("%d %d\n", dataPtr[0],dataPtr[1]);
+
+			if (EBCDIC) {
+				for (int i = 0; i < iVarLenDigits; i++) {
+					dataPtr[i] = EBCDICtoASCII(dataPtr[i]);
+				}
+			}
+
+			*oLen = dataPtr[0]*10 + dataPtr[1];
+			//printf("%d %d\n", dataPtr[0],dataPtr[1]);
 			tmpPtr += 2;
 
 		} else if ( iVarLenDigits == 3 ) {
@@ -755,7 +792,14 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 			dataPtr[0] = (*tmpPtr - '0');
 			dataPtr[1] = (*(tmpPtr+1) - '0');
 			dataPtr[2] = (*(tmpPtr+2) - '0');
-			*oLen = (*tmpPtr - '0')*100 + (*(tmpPtr+1) - '0')*10 + (*(tmpPtr+2) - '0');
+
+			if (EBCDIC) {
+				for (int i = 0; i < iVarLenDigits; i++) {
+					dataPtr[i] = EBCDICtoASCII(dataPtr[i]);
+				}
+			}
+			//*oLen = (*tmpPtr - '0')*100 + (*(tmpPtr+1) - '0')*10 + (*(tmpPtr+2) - '0');
+			*oLen = dataPtr[0]*100 + dataPtr[1]*10 + dataPtr[2];
 			tmpPtr += 3;
 
 		}
@@ -772,16 +816,19 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 		// 	tmpPtr++;
 		// } /* end-while */
 
-		printf("Read size Before: %d bytes.\n", *oLen);
+		// printf("Read size Before: %d bytes.\n", *oLen);
 		/* limit if exceeds max */
 		*oLen = MIN(iMaxValue,*oLen);
 	}
 
-	printf("Read size is: %d bytes.\n", *oLen);
-	for (int i = 0; i < *oLen; i++) {
-		printf("%x ", *(tmpPtr+i));
+	if (DEBUG)
+	{	
+		printf("\tRead size is: %d bytes: - ", *oLen);
+		for (int i = 0; i < *oLen; i++) {
+			printf("%x ", *(tmpPtr+i));
+		}
+		printf("\n\n");
 	}
-	printf("\n");
 
 	*ioPtr = tmpPtr;
 
@@ -820,33 +867,45 @@ DL_ERR _hexstr_to_bytes(const char *hexStr,
 	return 0;
 }
 
-DL_ERR _bytes_to_hexstr(const char *hexStr,
+DL_ERR _bytes_to_hexstr(const unsigned char *bytes,
                      	unsigned char *output,
                     	unsigned int *outputLen) 
-{
-	size_t len = strlen(hexStr);
+{	
+	DL_UINT8 ch;
+	size_t len = strlen(bytes);
 	if (len % 2 != 0) {
 		return -1;
 	}
-	size_t finalLen = len / 2;
+	size_t finalLen = len * 2;
 	*outputLen = finalLen;
-	for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
-		if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
-		goto convert;
-		} else {
-		if ((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) {
-			goto convert;
-		} else {
-			*outputLen = 0;
-			return -1;
+
+	while ( finalLen-- > 0 )
+		{
+			ch = (*bytes >> 4) & 0xf;
+			*output++ = DL_NIBBLE_2_ASCHEX(ch);
+			ch = *bytes & 0xf;
+			*output++ = DL_NIBBLE_2_ASCHEX(ch);
 		}
-		}
-	convert:
-		output[outIdx] =
-			(hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
-	}
-	output[finalLen] = '\0';
 	return 0;
+}
+
+DL_ERR _bcd_to_asc(	DL_UINT8 * BcdBuf,
+					DL_UINT8 * AscBuf,
+					DL_UINT16 Len)
+{
+    int i;
+
+    for (i = 0; i < Len; i++)
+    {
+        *AscBuf = ((i % 2) ? (*BcdBuf & 0x0f) : ((*BcdBuf >> 4) & 0x0f));
+		*AscBuf += ((*AscBuf > 9) ? ('A' - 10) : '0');
+		AscBuf++;
+		if (i % 2) {
+			BcdBuf++;
+		}
+    }
+
+    return 0;
 }
 
 

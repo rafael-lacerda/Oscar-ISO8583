@@ -58,16 +58,19 @@ int main ( void )
 	(void)DL_ISO8583_MSG_SetField_Str(22,(const unsigned char*)"051",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(23,(const unsigned char*)"001",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(32,(const unsigned char*)"012345",&isoMsg);
+	//(void)DL_ISO8583_MSG_SetField_Str(33,(const unsigned char*)"022020",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(35,(const unsigned char*)"2306502281580052=30022060000040700000",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(37,(const unsigned char*)"756565608769",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(41,(const unsigned char*)"12345678",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(42,(const unsigned char*)"123456789123455",&isoMsg);
-	if(!EBCDIC){(void)DL_ISO8583_MSG_SetField_Str(43,(const unsigned char*)" O Rafao eh bao mesmo!..................",&isoMsg);}
+	(void)DL_ISO8583_MSG_SetField_Str(43,(const unsigned char*)" O Rafao eh bao mesmo!..................",&isoMsg);
+	if(!EBCDIC){(void)DL_ISO8583_MSG_SetField_Str(43,(const unsigned char*)"O Rafao eh bao mesmo!  ............. USA",&isoMsg);}
 	(void)DL_ISO8583_MSG_SetField_Str(48,(const unsigned char*)"R8002TV",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(49,(const unsigned char*)"840",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(50,(const unsigned char*)"840",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(51,(const unsigned char*)"986",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(52,(const unsigned char*)"51DA3E15599C3DD4",&isoMsg);
+	//printf("%x\n",hex2bytes("51DA3E15599C3DD4"));
 	(void)DL_ISO8583_MSG_SetField_Str(55,(const unsigned char*)"5F2A020840820258008407A0000000041010950500000000009A032105249C01009F02060000000033009F10120110A00000044000DAC100000000000000009F1A0208409F2608607C7D64313B62FB9F2701809F3303E0E8E89F34034103029F360200419F370411F6D799",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(56,(const unsigned char*)"013301295001I0IY91JUQLWDZCLQRPYNDPAJD",&isoMsg);
 	(void)DL_ISO8583_MSG_SetField_Str(61,(const unsigned char*)"000000000050084090210",&isoMsg);
@@ -77,6 +80,8 @@ int main ( void )
 	if (error != 0){
 		printf("Error %d ocurred.",error);
 	}
+
+	//DL_ISO8583_MSG_Dump(stdout,NULL,&isoHandler,&isoMsg);
 
 	/* output ISO message content */
 	// DL_ISO8583_MSG_Dump(stdout,NULL,&isoHandler,&isoMsg);
@@ -95,7 +100,7 @@ int main ( void )
 	/* output packed message (in hex) */
 	//DL_OUTPUT_Hex(stdout,NULL,packBuf,packedSize);
 
-	std::cout << hexStr(packBuf,packedSize) << std::endl;
+	//std::cout << hexStr(packBuf,packedSize) << std::endl;
 
 	int mInt = 16;
 	DL_UINT8 len = (unsigned char) mInt;
@@ -111,17 +116,29 @@ int main ( void )
 	memset(format, 0, sizeof(format));
     sprintf(format, "%c0%lulu", '%', (unsigned long) (AscLen));
     sprintf((char *)str, (char *)format, mInt);
-	std::cout << str << std::endl;
+	//std::cout << str << std::endl;
 	memcpy(lenPtr, (DL_UINT8 *)str, AscLen );
 
-	std::cout << hexStr(lenPtr,2) << std::endl;
+	//std::cout << hexStr(lenPtr,2) << std::endl;
 	unsigned int length = 0;
 	unsigned char buff[108];
 	const char * hexStr1 = "5F2A020840820258008407A0000000041010950500000000009A032105249C01009F02060000000033009F10120110A00000044000DAC100000000000000009F1A0208409F2608607C7D64313B62FB9F2701809F3303E0E8E89F34034103029F360200419F370411F6D799";
 	unsigned int * lengthPtr = &length;
 	HexStringToBytes(hexStr1,buff,lengthPtr);
 
-	std::cout << hexStr(buff,*lengthPtr) << std::endl;
+	//std::cout << hexStr(buff,*lengthPtr) << std::endl;
+
+	char de52[] = "\x51\xDA\x3E\x15\x59\x9C\x3D\xD4";
+	DL_UINT8 bcdBuff[8];
+	DL_UINT8 ascBuff[16];
+	unsigned int size = 0;	
+
+	printf("%s\n",de52);
+	printf("%c\n",*de52);
+
+	printf("LAST: ");
+	fwrite(de52, 9, 1, stdout);
+	printf("\n");
 
 	return 0;
 }
@@ -187,4 +204,17 @@ unsigned char * hex2bytes(const char *hexStr) {
 	}
 	output[finalLen] = '\0';
 	return output;
+}
+
+int bcd2asc(unsigned char * BcdBuf, unsigned char * AscBuf, int Len)
+{
+    int i;
+
+    for (i = 0; i < Len; i++)
+    {
+        AscBuf[i] = (i % 2) ? (BcdBuf[i / 2] & 0x0f) : ((BcdBuf[i / 2] >> 4) & 0x0f);
+        AscBuf[i] += ((AscBuf[i] > 9) ? ('A' - 10) : '0');
+    }
+
+    return 0;
 }
