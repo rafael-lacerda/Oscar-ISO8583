@@ -760,28 +760,29 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 	//printf("%x\n",*tmpPtr);
 
 	if ( kDL_ISO8583_FIXED != iVarLenDigits )
-	{
+	{	
 		*oLen = 0;
 
 		if (DEBUG)
 		{
 			printf("\tLen Bytes to read: ");
-			for (int i = 0; i < iVarLenDigits; i++) {
-				printf("%d ", *(tmpPtr+i));
+			for (int i = 0; i < iVarLenDigits; i++) 
+			{
+				printf("%02X ", *(tmpPtr+i));
 			}
 			printf("\n");
 		}
 
 		if ( iVarLenDigits == 2 ) {
 
-			dataPtr[0] = (*tmpPtr - '0');
-			dataPtr[1] = (*(tmpPtr+1) - '0');
-
 			if (EBCDIC) {
 				for (int i = 0; i < iVarLenDigits; i++) {
-					dataPtr[i] = EBCDICtoASCII(dataPtr[i]);
+					tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 				}
 			}
+
+			dataPtr[0] = (*tmpPtr - '0');
+			dataPtr[1] = (*(tmpPtr+1) - '0');
 
 			*oLen = dataPtr[0]*10 + dataPtr[1];
 			//printf("%d %d\n", dataPtr[0],dataPtr[1]);
@@ -789,15 +790,16 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 		} else if ( iVarLenDigits == 3 ) {
 
+			if (EBCDIC) {
+				for (int i = 0; i < iVarLenDigits; i++) {
+					tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
+				}
+			}
+
 			dataPtr[0] = (*tmpPtr - '0');
 			dataPtr[1] = (*(tmpPtr+1) - '0');
 			dataPtr[2] = (*(tmpPtr+2) - '0');
 
-			if (EBCDIC) {
-				for (int i = 0; i < iVarLenDigits; i++) {
-					dataPtr[i] = EBCDICtoASCII(dataPtr[i]);
-				}
-			}
 			//*oLen = (*tmpPtr - '0')*100 + (*(tmpPtr+1) - '0')*10 + (*(tmpPtr+2) - '0');
 			*oLen = dataPtr[0]*100 + dataPtr[1]*10 + dataPtr[2];
 			tmpPtr += 3;
@@ -823,9 +825,9 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 	if (DEBUG)
 	{	
-		printf("\tRead size is: %d bytes: - ", *oLen);
+		printf("\tRead size is %d bytes - ", *oLen);
 		for (int i = 0; i < *oLen; i++) {
-			printf("%x ", *(tmpPtr+i));
+			printf("%02X ", *(tmpPtr+i));
 		}
 		printf("\n\n");
 	}

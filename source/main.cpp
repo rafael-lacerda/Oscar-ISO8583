@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 DL_UINT16 EBCDIC = 1;
-DL_UINT16 DEBUG = 1;
+DL_UINT16 DEBUG = 0;
 
 std::string hexStr(const DL_UINT8 *iPtr, DL_UINT32 iNumBytes );
 int HexStringToBytes(const char *hexStr, unsigned char *output, unsigned int *outputLen);
@@ -86,8 +86,8 @@ int main ( void )
 	// DL_OUTPUT_Hex(stdout,NULL,packBuf,packedSize);
 	// DL_OUTPUT_Hex(stdout,NULL,outBuff,packedSize);
 	//fwrite(hexStr0,strLen-1,1,stdout);
-	printf("\nOriginal:   %s\n", hexStr0);
-	std::cout << "\nPacked:     " << hexStr(packBuf,packedSize) << std::endl;
+	// printf("\nOriginal:       %s\n", hexStr0);
+	std::cout << "\nPacked Raw Hex: " << hexStr(packBuf,packedSize) << std::endl;
 
 
 	DL_ISO8583_MSG_Free(&isoMsg);
