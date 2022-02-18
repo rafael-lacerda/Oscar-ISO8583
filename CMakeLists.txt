@@ -45,11 +45,24 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${PROJECT_CXXFLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "-Wno-deprecated -Wno-all")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${PROJECT_CXXFLAGS}")
 
-                       
+set(Boost_USE_STATIC_LIBS        ON)  # only find static libs
+set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
+set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
+set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
+find_package(Boost 1.66.0 COMPONENTS asio system)
+if(Boost_FOUND)
+    message("Found Boost.")
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()              
+
 #
 # All libraries required to link executables
 #
-set(DEPENDENCY_LIBRARIES)
+set(DEPENDENCY_LIBRARIES 
+            ${Boost_LIBRARIES}
+            boost_system
+            pthread)
 
 #
 # Special commands
