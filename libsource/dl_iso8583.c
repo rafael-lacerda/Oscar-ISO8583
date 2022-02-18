@@ -28,6 +28,8 @@
 
 #include "dl_iso8583.h"
 
+//DL_UINT16 DEBUG = 0;
+
 /******************************************************************************/
 
 void DL_ISO8583_MSG_Init ( DL_UINT8       *_iStaticBuf,
@@ -255,15 +257,30 @@ DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 	DL_UINT16  maxFieldIdx = MIN(kDL_ISO8583_MAX_FIELD_IDX,(iHandler->fieldItems)-1);
 	int        haveBitmap  = 0;
 
+	// DL_UINT8  tmpPtr[(iByteArrSize/2)+1];
+	// DL_UINT16 tmpBytesSize = 0;
+
+	// err = _hexstr_to_bytes(curPtr,tmpPtr,&tmpBytesSize);
+	// if (err != 0){
+	// 	printf("Error %d ocurred. in Conversion\n",err);
+	// }
+	// printf("Entrei 2\n");
+	// DL_UINT8  *endTmpPtr      = tmpPtr + tmpBytesSize;
+
 	/* unpack all fields until we've encountered a bitmap field */
 	while ( !err && (curFieldIdx < maxFieldIdx) && (curPtr < endPtr) && !haveBitmap )
-	{
-		err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
+	{	
+		//printf("Reading field 0...\n");
+		if (DEBUG)
+		{
+			printf("Reading field [%03d]:\n",curFieldIdx);
+		}
 
+		err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
 		if ( DL_ISO8583_IS_BITMAP(iHandler->fieldArr[curFieldIdx].fieldType) )
 			haveBitmap = 1;
-
 		curFieldIdx++;
+		
 
 	} /* end-while */
 
@@ -271,7 +288,12 @@ DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 	while ( !err && (curFieldIdx < maxFieldIdx) && (curPtr < endPtr) )
 	{
 		if ( 0 != ioMsg->field[curFieldIdx].len ) /* present */
-		{
+		{	
+			if (DEBUG)
+			{
+				printf("Reading field [%03d]:\n",curFieldIdx);
+			}
+
 			err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
 		}
 

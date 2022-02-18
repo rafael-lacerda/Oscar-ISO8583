@@ -36,6 +36,7 @@
 #include "dl_iso8583_common.h"
 
 extern DL_UINT16 EBCDIC;
+extern DL_UINT16 DEBUG;
 
 /******************************************************************************/
 
@@ -48,6 +49,18 @@ DL_ERR _DL_ISO8583_FIELD_Unpack ( DL_UINT16                  iField,
 								  DL_ISO8583_MSG            *ioMsg,
 								  const DL_ISO8583_HANDLER  *iHandler,
 								  DL_UINT8                 **ioPtr );
+
+DL_ERR _hexstr_to_bytes	(	const char *hexStr,
+                     		unsigned char *output,
+                    		unsigned int *outputLen);
+
+DL_ERR _bytes_to_hexstr(const unsigned char *bytes,
+                     	unsigned char *output,
+                    	unsigned int *outputLen);
+
+DL_ERR _bcd_to_asc(	DL_UINT8 * BcdBuf,
+					DL_UINT8 * AscBuf,
+					DL_UINT16 Len);
 
 /******************************************************************************/
 

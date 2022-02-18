@@ -1,192 +1,312 @@
 //
-// DL ISO8583 library demo
+// async_tcp_client.cpp
+// ~~~~~~~~~~~~~~~~~~~~
 //
+// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/read_until.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/write.hpp>
+#include <functional>
 #include <iostream>
 #include <string>
-#include <sstream>
-#include "dl_iso8583.h"
-#include "dl_iso8583_defs_1987.h"
-#include "dl_output.h" // for 'DL_OUTPUT_Hex'
-#include <boost/algorithm/hex.hpp>
-#include <stdio.h>
 
-//extern DL_UINT16 EBCDIC;
+using boost::asio::steady_timer;
+using boost::asio::ip::tcp;
+using std::placeholders::_1;
+using std::placeholders::_2;
 
-DL_UINT16 EBCDIC = 0;
+//
+// This class manages socket timeouts by applying the concept of a deadline.
+// Some asynchronous operations are given deadlines by which they must complete.
+// Deadlines are enforced by an "actor" that persists for the lifetime of the
+// client object:
+//
+//  +----------------+
+//  |                |
+//  | check_deadline |<---+
+//  |                |    |
+//  +----------------+    | async_wait()
+//              |         |
+//              +---------+
+//
+// If the deadline actor determines that the deadline has expired, the socket
+// is closed and any outstanding operations are consequently cancelled.
+//
+// Connection establishment involves trying each endpoint in turn until a
+// connection is successful, or the available endpoints are exhausted. If the
+// deadline actor closes the socket, the connect actor is woken up and moves to
+// the next endpoint.
+//
+//  +---------------+
+//  |               |
+//  | start_connect |<---+
+//  |               |    |
+//  +---------------+    |
+//           |           |
+//  async_-  |    +----------------+
+// connect() |    |                |
+//           +--->| handle_connect |
+//                |                |
+//                +----------------+
+//                          :
+// Once a connection is     :
+// made, the connect        :
+// actor forks in two -     :
+//                          :
+// an actor for reading     :       and an actor for
+// inbound messages:        :       sending heartbeats:
+//                          :
+//  +------------+          :          +-------------+
+//  |            |<- - - - -+- - - - ->|             |
+//  | start_read |                     | start_write |<---+
+//  |            |<---+                |             |    |
+//  +------------+    |                +-------------+    | async_wait()
+//          |         |                        |          |
+//  async_- |    +-------------+       async_- |    +--------------+
+//   read_- |    |             |       write() |    |              |
+//  until() +--->| handle_read |               +--->| handle_write |
+//               |             |                    |              |
+//               +-------------+                    +--------------+
+//
+// The input actor reads messages from the socket, where messages are delimited
+// by the newline character. The deadline for a complete message is 30 seconds.
+//
+// The heartbeat actor sends a heartbeat (a message that consists of a single
+// newline character) every 10 seconds. In this example, no deadline is applied
+// to message sending.
+//
 
-std::string hexStr(const DL_UINT8 *iPtr, DL_UINT32 iNumBytes );
-int HexStringToBytes(const char *hexStr, unsigned char *output, unsigned int *outputLen);
-unsigned char * hex2bytes(const char *hexStr);
-
-int main ( void )
+class client
 {
-	DL_ISO8583_HANDLER isoHandler;
-	DL_ISO8583_MSG     isoMsg;
-	DL_UINT8           packBuf[1000];
-	DL_UINT16          packedSize;
-	DL_ERR 			   error;
-
-	//EBCDIC = 0;
-
-	/* get ISO-8583 1993 handler */
-	DL_ISO8583_DEFS_1987_GetHandler(&isoHandler);
-
-    //
-    // Populate/Pack message
-    //
-
-	/* initialise ISO message */
-	DL_ISO8583_MSG_Init(NULL,0,&isoMsg);
-
-	/* set ISO message fields */
-	error = DL_ISO8583_MSG_SetField_Str(0,(const unsigned char*)"0100",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(2,(const unsigned char*)"2306502281580052",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(3,(const unsigned char*)"000000",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(4,(const unsigned char*)"000000000001",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(5,(const unsigned char*)"000000000001",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(6,(const unsigned char*)"000000000001",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(7,(const unsigned char*)"0207142601",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(9,(const unsigned char*)"61000000",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(10,(const unsigned char*)"61954000",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(11,(const unsigned char*)"433008",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(12,(const unsigned char*)"112601",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(13,(const unsigned char*)"0207",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(14,(const unsigned char*)"3002",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(15,(const unsigned char*)"0207",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(16,(const unsigned char*)"0207",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(18,(const unsigned char*)"5999",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(22,(const unsigned char*)"051",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(23,(const unsigned char*)"001",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(32,(const unsigned char*)"012345",&isoMsg);
-	//(void)DL_ISO8583_MSG_SetField_Str(33,(const unsigned char*)"022020",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(35,(const unsigned char*)"2306502281580052=30022060000040700000",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(37,(const unsigned char*)"756565608769",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(41,(const unsigned char*)"12345678",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(42,(const unsigned char*)"123456789123455",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(43,(const unsigned char*)" O Rafao eh bao mesmo!..................",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(48,(const unsigned char*)"R8002TV",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(49,(const unsigned char*)"840",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(50,(const unsigned char*)"840",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(51,(const unsigned char*)"986",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(52,(const unsigned char*)"51DA3E15599C3DD4",&isoMsg);
-	//printf("%x\n",hex2bytes("51DA3E15599C3DD4"));
-	(void)DL_ISO8583_MSG_SetField_Str(55,(const unsigned char*)"5F2A020840820258008407A0000000041010950500000000009A032105249C01009F02060000000033009F10120110A00000044000DAC100000000000000009F1A0208409F2608607C7D64313B62FB9F2701809F3303E0E8E89F34034103029F360200419F370411F6D799",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(56,(const unsigned char*)"013301295001I0IY91JUQLWDZCLQRPYNDPAJD",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(61,(const unsigned char*)"000000000050084090210",&isoMsg);
-	(void)DL_ISO8583_MSG_SetField_Str(63,(const unsigned char*)"MCG01139Z",&isoMsg);
-	//(void)DL_ISO8583_MSG_SetField_Str(127,(const unsigned char*)"01003000020372022020714260143300800001234512345678",&isoMsg);
-
-	if (error != 0){
-		printf("Error %d ocurred.",error);
-	}
-
-	/* output ISO message content */
-	// DL_ISO8583_MSG_Dump(stdout,NULL,&isoHandler,&isoMsg);
-	
-	/* pack ISO message */
-	error = DL_ISO8583_MSG_Pack(&isoHandler,&isoMsg,packBuf,&packedSize);
-	if (error != 0){
-		printf("Error %d ocurred.\n",error);
-	}
-
-	//printf("\n%s\n",packBuf);
-
-	/* free ISO message */
-	DL_ISO8583_MSG_Free(&isoMsg);
-
-	/* output packed message (in hex) */
-	//DL_OUTPUT_Hex(stdout,NULL,packBuf,packedSize);
-
-	std::cout << hexStr(packBuf,packedSize) << std::endl;
-
-	int mInt = 16;
-	DL_UINT8 len = (unsigned char) mInt;
-	int AscLen = 2;
-	//DL_UINT8 *lenPtr = &len;
-	DL_UINT8 lenPtr[10];
-	//memcpy((void*)lenPtr,(const void*) len,1);
-	// printf("%x\n",len);
-	// printf("%x\n",*lenPtr);
-
-	char  format[10], str[20];
-
-	memset(format, 0, sizeof(format));
-    sprintf(format, "%c0%lulu", '%', (unsigned long) (AscLen));
-    sprintf((char *)str, (char *)format, mInt);
-	std::cout << str << std::endl;
-	memcpy(lenPtr, (DL_UINT8 *)str, AscLen );
-
-	std::cout << hexStr(lenPtr,2) << std::endl;
-	unsigned int length = 0;
-	unsigned char buff[108];
-	const char * hexStr1 = "5F2A020840820258008407A0000000041010950500000000009A032105249C01009F02060000000033009F10120110A00000044000DAC100000000000000009F1A0208409F2608607C7D64313B62FB9F2701809F3303E0E8E89F34034103029F360200419F370411F6D799";
-	unsigned int * lengthPtr = &length;
-	HexStringToBytes(hexStr1,buff,lengthPtr);
-
-	std::cout << hexStr(buff,*lengthPtr) << std::endl;
-
-	return 0;
-}
-
-std::string hexStr(const DL_UINT8 *iPtr, DL_UINT32 iNumBytes ){
-	std::stringstream ss;
-     ss << std::hex;
-
-     for( int i(0) ; i < iNumBytes; ++i )
-         ss << std::setw(2) << std::setfill('0') << (int)iPtr[i];
-
-     return ss.str();
-}
-
-int HexStringToBytes(const char *hexStr,
-                     unsigned char *output,
-                     unsigned int *outputLen) {
-	size_t len = strlen(hexStr);
-	if (len % 2 != 0) {
-		return NULL;
-	}
-	size_t finalLen = len / 2;
-	*outputLen = finalLen;
-	for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
-		if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
-		goto convert;
-		} else {
-		if ((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) {
-			goto convert;
-		} else {
-			*outputLen = 0;
-			return NULL;
+	public:
+		client(boost::asio::io_context& io_context)
+			: socket_(io_context),
+			deadline_(io_context),
+			heartbeat_timer_(io_context)
+		{
 		}
-		}
-	convert:
-		output[outIdx] =
-			(hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
-	}
-	output[finalLen] = '\0';
-	return 0;
-}
 
-unsigned char * hex2bytes(const char *hexStr) {
-	size_t len = strlen(hexStr);
-	if (len % 2 != 0) {
-		return NULL;
-	}
-	size_t finalLen = len / 2;
-	unsigned char output[finalLen];
-	for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
-		if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
-		goto convert;
-		} else {
-		if ((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) {
-			goto convert;
-		} else {
-			return NULL;
+		// Called by the user of the client class to initiate the connection process.
+		// The endpoints will have been obtained using a tcp::resolver.
+		void start(tcp::resolver::results_type endpoints)
+		{
+			// Start the connect actor.
+			endpoints_ = endpoints;
+			start_connect(endpoints_.begin());
+
+			// Start the deadline actor. You will note that we're not setting any
+			// particular deadline here. Instead, the connect and input actors will
+			// update the deadline prior to each asynchronous operation.
+			deadline_.async_wait(std::bind(&client::check_deadline, this));
 		}
+
+		// This function terminates all the actors to shut down the connection. It
+		// may be called by the user of the client class, or by the class itself in
+		// response to graceful termination or an unrecoverable error.
+		void stop()
+		{
+			stopped_ = true;
+			boost::system::error_code ignored_error;
+			socket_.close(ignored_error);
+			deadline_.cancel();
+			heartbeat_timer_.cancel();
 		}
-	convert:
-		output[outIdx] =
-			(hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
-	}
-	output[finalLen] = '\0';
-	return output;
+
+	private:
+		void start_connect(tcp::resolver::results_type::iterator endpoint_iter)
+		{
+			if (endpoint_iter != endpoints_.end())
+			{
+			std::cout << "Trying " << endpoint_iter->endpoint() << "...\n";
+
+			// Set a deadline for the connect operation.
+			deadline_.expires_after(std::chrono::seconds(60));
+
+			// Start the asynchronous connect operation.
+			socket_.async_connect(endpoint_iter->endpoint(),
+				std::bind(&client::handle_connect,
+					this, _1, endpoint_iter));
+			}
+			else
+			{
+			// There are no more endpoints to try. Shut down the client.
+			stop();
+			}
+		}
+
+		void handle_connect(const boost::system::error_code& error,
+			tcp::resolver::results_type::iterator endpoint_iter)
+		{
+			if (stopped_)
+			return;
+
+			// The async_connect() function automatically opens the socket at the start
+			// of the asynchronous operation. If the socket is closed at this time then
+			// the timeout handler must have run first.
+			if (!socket_.is_open())
+			{
+				std::cout << "Connect timed out\n";
+
+				// Try the next available endpoint.
+				start_connect(++endpoint_iter);
+			}
+
+			// Check if the connect operation failed before the deadline expired.
+			else if (error)
+			{
+				std::cout << "Connect error: " << error.message() << "\n";
+
+				// We need to close the socket used in the previous connection attempt
+				// before starting a new one.
+				socket_.close();
+
+				// Try the next available endpoint.
+				start_connect(++endpoint_iter);
+			}
+
+			// Otherwise we have successfully established a connection.
+			else
+			{
+				std::cout << "Connected to " << endpoint_iter->endpoint() << "\n";
+
+				// Start the input actor.
+				start_read();
+
+				// Start the heartbeat actor.
+				start_write();
+			}
+		}
+
+		void start_read()
+		{
+			// Set a deadline for the read operation.
+			deadline_.expires_after(std::chrono::seconds(30));
+
+			// Start an asynchronous operation to read a newline-delimited message.
+			boost::asio::async_read_until(socket_,
+				boost::asio::dynamic_buffer(input_buffer_), '\n',
+				std::bind(&client::handle_read, this, _1, _2));
+		}
+
+		void handle_read(const boost::system::error_code& error, std::size_t n)
+		{
+			if (stopped_)
+			return;
+
+			if (!error)
+			{
+				// Extract the newline-delimited message from the buffer.
+				std::string line(input_buffer_.substr(0, n - 1));
+				input_buffer_.erase(0, n);
+
+				// Empty messages are heartbeats and so ignored.
+				if (!line.empty())
+				{
+					std::cout << "Received: " << line << "\n";
+				}
+
+				start_read();
+			}
+			else
+			{
+				std::cout << "Error on receive: " << error.message() << "\n";
+
+				stop();
+			}
+		}
+
+		void start_write()
+		{
+			if (stopped_)
+			return;
+
+			// Start an asynchronous operation to send a heartbeat message.
+			boost::asio::async_write(socket_, boost::asio::buffer("\n", 1),
+				std::bind(&client::handle_write, this, _1));
+		}
+
+		void handle_write(const boost::system::error_code& error)
+		{
+			if (stopped_)
+			return;
+
+			if (!error)
+			{
+				// Wait 10 seconds before sending the next heartbeat.
+				heartbeat_timer_.expires_after(std::chrono::seconds(10));
+				heartbeat_timer_.async_wait(std::bind(&client::start_write, this));
+			}
+			else
+			{
+				std::cout << "Error on heartbeat: " << error.message() << "\n";
+
+				stop();
+			}
+		}
+
+		void check_deadline()
+		{
+			if (stopped_)
+			return;
+
+			// Check whether the deadline has passed. We compare the deadline against
+			// the current time since a new asynchronous operation may have moved the
+			// deadline before this actor had a chance to run.
+			if (deadline_.expiry() <= steady_timer::clock_type::now())
+			{
+				// The deadline has passed. The socket is closed so that any outstanding
+				// asynchronous operations are cancelled.
+				socket_.close();
+
+				// There is no longer an active deadline. The expiry is set to the
+				// maximum time point so that the actor takes no action until a new
+				// deadline is set.
+				deadline_.expires_at(steady_timer::time_point::max());
+			}
+
+			// Put the actor back to sleep.
+			deadline_.async_wait(std::bind(&client::check_deadline, this));
+		}
+
+	private:
+		bool stopped_ = false;
+		tcp::resolver::results_type endpoints_;
+		tcp::socket socket_;
+		std::string input_buffer_;
+		steady_timer deadline_;
+		steady_timer heartbeat_timer_;
+};
+
+int main(int argc, char* argv[])
+{
+  try
+  {
+    if (argc != 3)
+    {
+      std::cerr << "Usage: client <host> <port>\n";
+      return 1;
+    }
+
+    boost::asio::io_context io_context;
+    tcp::resolver r(io_context);
+    client c(io_context);
+
+    c.start(r.resolve(argv[1], argv[2]));
+
+    io_context.run();
+  }
+  catch (std::exception& e)
+  {
+    std::cerr << "Exception: " << e.what() << "\n";
+  }
+
+  return 0;
 }
