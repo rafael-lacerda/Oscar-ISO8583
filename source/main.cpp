@@ -70,8 +70,12 @@ int main ( void )
 
 
 	//std::cout << "\nPacked Raw Hex: " << hexStr(packBuf,packedSize) << std::endl;
-	std::cout << "\nPacked Raw Hex: " << hexStr(outBuff,buffLen) << std::endl;
+	//std::cout << "\nPacked Raw Hex: " << hexStr(outBuff,buffLen) << std::endl;
 
+
+	cout << "\nOutput message: " << endl;
+	DL_ISO8583_MSG_Dump(stdout,0,&isoHandler,&isoMsg);
+	cout << endl;
 
 	DL_ISO8583_MSG_Free(&isoMsg);
 
@@ -115,8 +119,21 @@ int main ( void )
 	}
 	else {
 		//const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-		cout << hexStr(responseBuf, responseLen) << endl;
+		// cout << hexStr(responseBuf, responseLen) << endl;
 	}
+
+	DL_ISO8583_MSG_Init(NULL,0,&isoMsg);
+
+	err = DL_ISO8583_MSG_Unpack(&isoHandler,responseBuf,isoSize,&isoMsg);
+	if (err != 0){
+		printf("Error %d ocurred on Unpacking.\n",err);
+	}
+
+	cout << "\nInput message: " << endl;
+	DL_ISO8583_MSG_Dump(stdout, 0,&isoHandler,&isoMsg);
+	cout << endl;
+
+	DL_ISO8583_MSG_Free(&isoMsg);
 
 	return 0;
 }
