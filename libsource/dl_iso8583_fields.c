@@ -300,6 +300,7 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 	DL_ISO8583_MSG_FIELD *fieldPtr = ((DL_ISO8583_MSG*)iMsg)->field + iField;
 	DL_UINT32             actLen   = fieldPtr->len;
 	DL_UINT8             *dataPtr  = fieldPtr->ptr;
+	DL_UINT8			dataPtrEbcdic[actLen];
 	DL_UINT32             reqLen   = iFieldDefPtr->len;
 
 	/* variable length handling */
@@ -307,8 +308,8 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 
 	if (EBCDIC) {
 		for (int i = 0; i < actLen; i++) {
-			//printf("%x %x\n", dataPtr[i], ASCIItoEBCDIC(dataPtr[i]));
-			dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+			dataPtrEbcdic[i] = fieldPtr->ptr[i];
+			dataPtrEbcdic[i] = ASCIItoEBCDIC(dataPtrEbcdic[i]);
 		}
 	}
 
@@ -321,15 +322,27 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 		else if ( actLen == reqLen ) /* exact size */
 		{
 			/* copy up to 'required' amount */
-			DL_MEM_memcpy(tmpPtr,dataPtr,reqLen);
+			if (EBCDIC)
+				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,reqLen);
+			else
+				DL_MEM_memcpy(tmpPtr,dataPtr,reqLen);
 			tmpPtr += reqLen;
 		}
 		else /* shorter - so need to right pad (space) */
-		{
-			/* copy what data we have (actual length) */
-			DL_MEM_memcpy(tmpPtr,dataPtr,actLen);
-			/* right pad as required */
-			DL_MEM_memset(tmpPtr+actLen,(int)kDL_ASCII_SP,reqLen-actLen);
+		{	
+			if (EBCDIC) {
+				/* copy what data we have (actual length) */
+				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,actLen);
+				/* right pad as required */
+				DL_MEM_memset(tmpPtr+actLen,(int)kDL_ASCII_SP,reqLen-actLen);
+			}
+			else 
+			{
+				/* copy what data we have (actual length) */
+				DL_MEM_memcpy(tmpPtr,dataPtr,actLen);
+				/* right pad as required */
+				DL_MEM_memset(tmpPtr+actLen,(int)kDL_ASCII_SP,reqLen-actLen);
+			}
 			tmpPtr += reqLen;
 		}
 	}
@@ -395,6 +408,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 	DL_ISO8583_MSG_FIELD *fieldPtr = ((DL_ISO8583_MSG*)iMsg)->field + iField;
 	DL_UINT32             actLen   = fieldPtr->len;
 	DL_UINT8             *dataPtr  = fieldPtr->ptr;
+	DL_UINT8 			dataPtrEbcdic[actLen];
 	DL_UINT32             reqLen   = iFieldDefPtr->len;
 	DL_UINT8              dataPtrBytes[(actLen/2)+1];
 	DL_UINT32			 *actLenPtr = &actLen;
@@ -403,7 +417,8 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 	if (iField == 0) {
 		if (EBCDIC)	{
 			for (int i = 0; i < actLen; i++) {
-				dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
+				dataPtrEbcdic[i] = fieldPtr->ptr[i];
+				dataPtrEbcdic[i] = ASCIItoEBCDIC(dataPtrEbcdic[i]);
 			}
 		}
 	/* correct binary fields that shoud be recorded as bytes */
@@ -432,16 +447,32 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 		}
 		else if ( actLen == reqLen ) /* exact size */
 		{
-			/* copy up to 'required' amount */
-			DL_MEM_memcpy(tmpPtr,dataPtr,reqLen);
-			tmpPtr += reqLen;
+			if (EBCDIC) {
+				/* copy up to 'required' amount */
+				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,reqLen);
+				tmpPtr += reqLen;
+			} else {
+				/* copy up to 'required' amount */
+				DL_MEM_memcpy(tmpPtr,dataPtr,reqLen);
+				tmpPtr += reqLen;
+			}
 		}
 		else /* shorter - so need to right pad (space) */
 		{
-			/* copy what data we have (actual length) */
-			DL_MEM_memcpy(tmpPtr,dataPtr,actLen);
-			/* right pad as required */
-			DL_MEM_memset(tmpPtr+actLen,(int)0,reqLen-actLen);
+			if (EBCDIC)
+			{			
+				/* copy what data we have (actual length) */
+				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,actLen);
+				/* right pad as required */
+				DL_MEM_memset(tmpPtr+actLen,(int)0,reqLen-actLen);
+			}
+			else 
+			{			
+				/* copy what data we have (actual length) */
+				DL_MEM_memcpy(tmpPtr,dataPtr,actLen);
+				/* right pad as required */
+				DL_MEM_memset(tmpPtr+actLen,(int)0,reqLen-actLen);
+			}
 			tmpPtr += reqLen;
 		}
 	}
