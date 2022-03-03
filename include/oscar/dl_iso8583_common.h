@@ -25,9 +25,9 @@
 #ifndef __INC_DL_ISO8583_COMMON
 #define __INC_DL_ISO8583_COMMON
 
-#include "dl_base.h"
-#include "dl_err.h"
-#include "dl_mem.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_err.h"
+#include "oscar/dl_mem.h"
 
 /******************************************************************************/
 //

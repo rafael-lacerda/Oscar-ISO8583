@@ -26,9 +26,8 @@
 /*                                                                            */
 /******************************************************************************/
 
-#include "dl_iso8583_fields.h"
+#include "oscar/dl_iso8583_fields.h"
 
-DL_UINT16 EBCDIC = 0;
 DL_UINT16 DEBUG = 0;
 
 /******************************************************************************/
@@ -52,22 +51,26 @@ DL_ERR _unpack_iso_ASCHEX ( DL_UINT16                    iField,
 DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 						 const DL_ISO8583_MSG        *iMsg,
 						 const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						 DL_UINT8                   **ioPtr );
+						 DL_UINT8                   **ioPtr,
+						 DL_UINT16                    isEbcdic );
 
 DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 						   DL_ISO8583_MSG              *ioMsg,
 						   const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						   DL_UINT8                   **ioPtr );
+						   DL_UINT8                   **ioPtr,
+						   DL_UINT16                    isEbcdic );
 
 DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 						  const DL_ISO8583_MSG        *iMsg,
 						  const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						  DL_UINT8                   **ioPtr );
+						  DL_UINT8                   **ioPtr,
+						  DL_UINT16                    isEbcdic );
 
 DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 						    DL_ISO8583_MSG              *ioMsg,
 						    const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						    DL_UINT8                   **ioPtr );
+						    DL_UINT8                   **ioPtr,
+							DL_UINT16                    isEbcdic );
 
 DL_ERR _pack_iso_BITMAP ( DL_UINT16                    iField,
 						  const DL_ISO8583_MSG        *iMsg,
@@ -80,8 +83,8 @@ DL_ERR _unpack_iso_BITMAP ( DL_UINT16                    iField,
 						    DL_UINT8                   **ioPtr );
 
 DL_ERR _hexstr_to_bytes (	const char *hexStr,
-                     		unsigned char *output,
-                     		unsigned int *outputLen);
+                     		DL_UINT8 *output,
+                     		DL_UINT16 *outputLen);
 
 /******************************************************************************/
 //
@@ -93,13 +96,15 @@ DL_ERR _hexstr_to_bytes (	const char *hexStr,
 static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 						   DL_UINT32   iActLen,
 						   DL_UINT32  *ioReqLen,
-						   DL_UINT8  **ioPtr );
+						   DL_UINT8  **ioPtr,
+						   DL_UINT16   isEbcdic );
 
 // determines variable length element
 static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 			               DL_UINT8         iVarLenDigits,
 				           DL_UINT16        iMaxValue,
-				           DL_UINT16       *oLen );
+				           DL_UINT16       *oLen,
+						   DL_UINT16   isEbcdic );
 
 /******************************************************************************/
 //
@@ -108,8 +113,8 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 struct DL_ISO8583_TYPE_S
 {
-	DL_ERR    (*unpackFunc)(DL_UINT16,DL_ISO8583_MSG*,const DL_ISO8583_FIELD_DEF*,DL_UINT8**);
-	DL_ERR    (*packFunc  )(DL_UINT16,const DL_ISO8583_MSG*,const DL_ISO8583_FIELD_DEF*,DL_UINT8**);
+	DL_ERR    (*unpackFunc)(DL_UINT16,DL_ISO8583_MSG*,const DL_ISO8583_FIELD_DEF*,DL_UINT8**,DL_UINT16);
+	DL_ERR    (*packFunc  )(DL_UINT16,const DL_ISO8583_MSG*,const DL_ISO8583_FIELD_DEF*,DL_UINT8**,DL_UINT16);
 };
 typedef struct DL_ISO8583_TYPE_S DL_ISO8583_TYPE;
 
@@ -145,13 +150,14 @@ static DL_ISO8583_TYPE fieldTypeArr[] = {
 DL_ERR _DL_ISO8583_FIELD_Pack ( DL_UINT16                  iField,
 								const DL_ISO8583_MSG      *iMsg,
 								const DL_ISO8583_HANDLER  *iHandler,
-								DL_UINT8                 **ioPtr )
+								DL_UINT8                 **ioPtr,
+								DL_UINT16                  isEbcdic )
 {
 	DL_ERR                err          = kDL_ERR_NONE;
 	DL_ISO8583_FIELD_DEF *fieldDefPtr  = DL_ISO8583_GetFieldDef(iField,iHandler);
 	DL_ISO8583_TYPE      *fieldTypePtr = GetFieldType(fieldDefPtr->fieldType);
 
-	err = fieldTypePtr->packFunc(iField,iMsg,fieldDefPtr,ioPtr);
+	err = fieldTypePtr->packFunc(iField,iMsg,fieldDefPtr,ioPtr,isEbcdic);
 
 	return err;
 }
@@ -161,13 +167,14 @@ DL_ERR _DL_ISO8583_FIELD_Pack ( DL_UINT16                  iField,
 DL_ERR _DL_ISO8583_FIELD_Unpack ( DL_UINT16                  iField,
 								  DL_ISO8583_MSG            *ioMsg,
 								  const DL_ISO8583_HANDLER  *iHandler,
-								  DL_UINT8                 **ioPtr )
+								  DL_UINT8                 **ioPtr,
+								  DL_UINT16					 isEbcdic )
 {
 	DL_ERR                err          = kDL_ERR_NONE;
 	DL_ISO8583_FIELD_DEF *fieldDefPtr  = DL_ISO8583_GetFieldDef(iField,iHandler);
 	DL_ISO8583_TYPE      *fieldTypePtr = GetFieldType(fieldDefPtr->fieldType);
 
-	err = fieldTypePtr->unpackFunc(iField,ioMsg,fieldDefPtr,ioPtr);
+	err = fieldTypePtr->unpackFunc(iField,ioMsg,fieldDefPtr,ioPtr,isEbcdic);
 
 	return err;
 }
@@ -190,7 +197,7 @@ DL_ERR _pack_iso_ASCHEX ( DL_UINT16                    iField,
 	DL_UINT32             i;
 
 	/* variable length handling */
-	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr);
+	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr,0);
 
 	if ( !err )
 	{
@@ -251,7 +258,7 @@ DL_ERR _unpack_iso_ASCHEX ( DL_UINT16                    iField,
 	DL_UINT8  *tmpDataPtr = NULL;
 
 	/* variable length handling */
-	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size,0);
 
 	/* allocate field */
 	if ( !err )
@@ -293,7 +300,8 @@ DL_ERR _unpack_iso_ASCHEX ( DL_UINT16                    iField,
 DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 						 const DL_ISO8583_MSG        *iMsg,
 						 const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						 DL_UINT8                   **ioPtr )
+						 DL_UINT8                   **ioPtr,
+						 DL_UINT16					  isEbcdic )
 {
 	DL_ERR                err      = kDL_ERR_NONE;
 	DL_UINT8             *tmpPtr   = *ioPtr;
@@ -304,9 +312,9 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 	DL_UINT32             reqLen   = iFieldDefPtr->len;
 
 	/* variable length handling */
-	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr);
+	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr,isEbcdic);
 
-	if (EBCDIC) {
+	if (isEbcdic) {
 		for (int i = 0; i < actLen; i++) {
 			dataPtrEbcdic[i] = fieldPtr->ptr[i];
 			dataPtrEbcdic[i] = ASCIItoEBCDIC(dataPtrEbcdic[i]);
@@ -322,7 +330,7 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 		else if ( actLen == reqLen ) /* exact size */
 		{
 			/* copy up to 'required' amount */
-			if (EBCDIC)
+			if (isEbcdic)
 				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,reqLen);
 			else
 				DL_MEM_memcpy(tmpPtr,dataPtr,reqLen);
@@ -330,7 +338,7 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 		}
 		else /* shorter - so need to right pad (space) */
 		{	
-			if (EBCDIC) {
+			if (isEbcdic) {
 				/* copy what data we have (actual length) */
 				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,actLen);
 				/* right pad as required */
@@ -358,7 +366,8 @@ DL_ERR _pack_iso_ASCII ( DL_UINT16                    iField,
 DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 						   DL_ISO8583_MSG              *ioMsg,
 						   const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						   DL_UINT8                   **ioPtr )
+						   DL_UINT8                   **ioPtr,
+						   DL_UINT16					isEbcdic )
 {
 	DL_ERR     err        = kDL_ERR_NONE;
 	DL_UINT8  *tmpPtr     = *ioPtr;
@@ -367,11 +376,11 @@ DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 	//DL_UINT32    actLen   = iFieldDefPtr->len;
 
 	/* variable length handling */
-	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size,isEbcdic);
 
 	if ( !err ) 
 	{
-		if (EBCDIC) {
+		if (isEbcdic) {
 			for (int i = 0; i < size; i++) {
 				tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 			}
@@ -401,7 +410,8 @@ DL_ERR _unpack_iso_ASCII ( DL_UINT16                    iField,
 DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 						  const DL_ISO8583_MSG        *iMsg,
 						  const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						  DL_UINT8                   **ioPtr )
+						  DL_UINT8                   **ioPtr,
+						  DL_UINT16					   isEbcdic )
 {
 	DL_ERR                err      = kDL_ERR_NONE;
 	DL_UINT8             *tmpPtr   = *ioPtr;
@@ -415,7 +425,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 
 	
 	if (iField == 0) {
-		if (EBCDIC)	{
+		if (isEbcdic)	{
 			for (int i = 0; i < actLen; i++) {
 				dataPtrEbcdic[i] = fieldPtr->ptr[i];
 				dataPtrEbcdic[i] = ASCIItoEBCDIC(dataPtrEbcdic[i]);
@@ -437,7 +447,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 	}
 	
 	/* variable length handling */
-	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr);
+	err = VarLen_Put(iFieldDefPtr->varLen,actLen,&reqLen,&tmpPtr,isEbcdic);
 
 	if ( !err )
 	{
@@ -447,7 +457,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 		}
 		else if ( actLen == reqLen ) /* exact size */
 		{
-			if (EBCDIC) {
+			if (isEbcdic) {
 				/* copy up to 'required' amount */
 				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,reqLen);
 				tmpPtr += reqLen;
@@ -459,7 +469,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 		}
 		else /* shorter - so need to right pad (space) */
 		{
-			if (EBCDIC)
+			if (isEbcdic)
 			{			
 				/* copy what data we have (actual length) */
 				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,actLen);
@@ -488,7 +498,8 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 						    DL_ISO8583_MSG              *ioMsg,
 						    const DL_ISO8583_FIELD_DEF  *iFieldDefPtr,
-						    DL_UINT8                   **ioPtr )
+						    DL_UINT8                   **ioPtr,
+							DL_UINT16					 isEbcdic )
 {
 	DL_ERR     err        = kDL_ERR_NONE;
 	DL_UINT8  *tmpPtr     = *ioPtr;
@@ -497,11 +508,11 @@ DL_ERR _unpack_iso_BINARY ( DL_UINT16                    iField,
 	
 
 	/* variable length handling */
-	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size);
+	err = VarLen_Get(&tmpPtr,iFieldDefPtr->varLen,iFieldDefPtr->len,&size,isEbcdic);
 	// printf("Size is: %u\n",size);
 
 	if (iField == 0) {
-		if (EBCDIC)	{
+		if (isEbcdic)	{
 			for (int i = 0; i < size; i++) {
 				tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 			}
@@ -707,7 +718,8 @@ DL_ERR _unpack_iso_BITMAP ( DL_UINT16                    iField,
 static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 						   DL_UINT32   iActLen,
 						   DL_UINT32  *ioReqLen,
-						   DL_UINT8  **ioPtr )
+						   DL_UINT8  **ioPtr,
+						   DL_UINT16   isEbcdic )
 {
 	DL_ERR    err    = kDL_ERR_NONE;
 	DL_UINT8 *tmpPtr = *ioPtr;
@@ -728,7 +740,7 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 			//printf("%u\n",tmpPtr);
 			//*tmpPtr++    = output_bcd_byte(iActLen);
 
-			if (EBCDIC) {
+			if (isEbcdic) {
 				for (int i = 0; i < kDL_ISO8583_LLVAR; i++) {
 					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
 				}
@@ -745,7 +757,7 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 			dataPtr[1] = ((iActLen%100)/10 + '0') ;
 			dataPtr[2] = (((iActLen%100)%10) + '0') ;
 
-			if (EBCDIC) {
+			if (isEbcdic) {
 				for (int i = 0; i < kDL_ISO8583_LLLVAR; i++) {
 					dataPtr[i] = ASCIItoEBCDIC(dataPtr[i]);
 				}
@@ -779,7 +791,8 @@ static DL_ERR VarLen_Put ( DL_UINT8    iVarLenType,
 static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 			               DL_UINT8         iVarLenDigits,
 				           DL_UINT16        iMaxValue,
-				           DL_UINT16       *oLen )
+				           DL_UINT16       *oLen,
+						   DL_UINT16   		isEbcdic )
 {
 	DL_ERR    err    = kDL_ERR_NONE;
 	DL_UINT8 *tmpPtr = (DL_UINT8*)*ioPtr;
@@ -806,7 +819,7 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 		if ( iVarLenDigits == 2 ) {
 
-			if (EBCDIC) {
+			if (isEbcdic) {
 				for (int i = 0; i < iVarLenDigits; i++) {
 					tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 				}
@@ -821,7 +834,7 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 		} else if ( iVarLenDigits == 3 ) {
 
-			if (EBCDIC) {
+			if (isEbcdic) {
 				for (int i = 0; i < iVarLenDigits; i++) {
 					tmpPtr[i] = EBCDICtoASCII(tmpPtr[i]);
 				}
@@ -872,8 +885,8 @@ static DL_ERR VarLen_Get ( const DL_UINT8 **ioPtr,
 
 
 DL_ERR _hexstr_to_bytes(const char *hexStr,
-                     	unsigned char *output,
-                    	unsigned int *outputLen) 
+                     	DL_UINT8 *output,
+                    	DL_UINT16 *outputLen) 
 {
 	size_t len = strlen(hexStr);
 	if (len % 2 != 0) {
@@ -900,9 +913,9 @@ DL_ERR _hexstr_to_bytes(const char *hexStr,
 	return 0;
 }
 
-DL_ERR _bytes_to_hexstr(const unsigned char *bytes,
-                     	unsigned char *output,
-                    	unsigned int *outputLen) 
+DL_ERR _bytes_to_hexstr(const DL_UINT8 *bytes,
+                     	DL_UINT8 *output,
+                    	DL_UINT16 *outputLen) 
 {	
 	DL_UINT8 ch;
 	size_t len = strlen(bytes);
@@ -940,7 +953,6 @@ DL_ERR _bcd_to_asc(	DL_UINT8 * BcdBuf,
 
     return 0;
 }
-
 
 
 /******************************************************************************/

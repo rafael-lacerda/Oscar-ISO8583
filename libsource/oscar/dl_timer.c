@@ -1,6 +1,6 @@
 /******************************************************************************/
 /*                                                                            */
-/* Copyright (C) 2007-2007 Oscar Sanderson                                    */
+/* Copyright (C) 2005-2007 Oscar Sanderson                                    */
 /*                                                                            */
 /* This software is provided 'as-is', without any express or implied          */
 /* warranty.  In no event will the author(s) be held liable for any damages   */
@@ -22,32 +22,77 @@
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
-/* Output Functions                                                           */
+/* Timer Module - Providing millisecond level timer capabilities              */
+/*                                                                            */
+/* NB Rollover occurs after 49.7 days due to UINT32 precision                 */
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef __INC_DL_OUTPUT
-#define __INC_DL_OUTPUT
-
-#include "dl_base.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-/******************************************************************************/
-
-/* outputs the hex dump of the specified data (iPtr/iNumBytes) to the */
-/* specified stream (iOutFile)                                        */
-/* NB '_iEolStr' defaults to '\n' if NULL                             */
-/* returns: n/a                                                       */
-void DL_OUTPUT_Hex ( FILE           *iOutFile,
-					 const char     *_iEolStr,
-					 const DL_UINT8 *iPtr,
-					 DL_UINT32       iNumBytes );
+#include "oscar/dl_timer.h"
 
 /******************************************************************************/
-#ifdef __cplusplus
+
+// returns: number of milliseconds
+static DL_UINT32 getMSec ( void );
+
+/******************************************************************************/
+
+void DL_TIMER_Start ( DL_TIMER *oTimer )
+{
+	/* init outputs */
+	DL_MEM_memset(oTimer,0,sizeof(DL_TIMER));
+
+	/* record seconds */
+	oTimer->sec = DL_TIME_GetUTCSeconds();
+
+	/* record micro-seconds */
+	oTimer->msec = getMSec();
+
+	return;
 }
+
+/******************************************************************************/
+
+DL_UINT32 DL_TIMER_GetDuration ( DL_TIMER iTimer )
+{
+	DL_UINT32 durMs    = 0;
+	DL_TIMER  tmpTimer;
+
+	/* start temp timer (to determine current time) */
+	DL_TIMER_Start(&tmpTimer);
+
+	/* calculate millisecond difference between current and original timer */
+	durMs = ( ((tmpTimer.sec - iTimer.sec) * 1000) +
+		      ((tmpTimer.msec - iTimer.msec) % 1000) )
+			& DL_MAX_UINT32;
+
+	return durMs;
+}
+
+/******************************************************************************/
+
+static DL_UINT32 getMSec ( void )
+{
+	DL_UINT32 ret = 0;
+
+#if defined(DL_WIN32)
+	{
+		ret = (DL_UINT32)(GetTickCount() % 1000);
+	}
+#elif defined(DL_UNIX)
+	{
+		struct timeval tv;
+		struct timezone tz;
+
+		gettimeofday(&tv, &tz);
+
+		ret = (DL_UINT32)((tv.tv_usec / 1000) % 1000);
+	}
+#else
+#error Platform Not Supported
 #endif
 
-#endif /* __INC_DL_OUTPUT */
+	return ret;
+}
+
+/******************************************************************************/

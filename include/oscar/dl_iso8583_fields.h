@@ -1,6 +1,6 @@
 /******************************************************************************/
 /*                                                                            */
-/* Copyright (C) 2001-2007 Oscar Sanderson                                    */
+/* Copyright (C) 2005-2007 Oscar Sanderson                                    */
 /*                                                                            */
 /* This software is provided 'as-is', without any express or implied          */
 /* warranty.  In no event will the author(s) be held liable for any damages   */
@@ -22,55 +22,47 @@
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
-/* Error code definitions                                                     */
+/* ISO8583 field packers / unpackers                                          */
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef __INC_DL_ERR
-#define __INC_DL_ERR
+#ifndef __INC_DL_ISO8583_FIELDS
+#define __INC_DL_ISO8583_FIELDS
 
-#include "dl_base.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_err.h"
+#include "oscar/dl_mem.h"
 
-/******************************************************************************/
-//
-// TYPES
-//
+#include "oscar/dl_iso8583_common.h"
 
-typedef DL_UINT32	DL_ERR;
-
-/******************************************************************************/
-//
-// GENERIC ERROR CODES
-//
-
-#define kDL_ERR_NONE					(DL_ERR)0
-
-#define kDL_ERR_OTHER					(DL_ERR)1
-#define kDL_ERR_NOT_IMPLEMENTED			(DL_ERR)2
-
-/******************************************************************************/
-//
-// ALLOCATED ERROR CODES
-//
-
-// 0000-0019	<RESERVED>
-// 0020-0999
-// 1000-1019	dl_mem
-// 1020-1039	dl_cgi
-// 1040-1059	dl_hash
-// 1060-1079	dl_sess
-// 1080-1099	<RFU>
-// 1100-1119	dl_file
-// 1120-1139	dl_dblib
-// 1140-1159	dl_socket
-// 1160-1179	dl_smtp
-// 1180-2499	<RFU>
-// 2500-2519	dl_avl
-// 2520-2999	<RFU>
-// 3000-3019	dl_threadpool
-// 3020-3999	<RFU>
-// 4000-4019	dl_staticQ
+extern DL_UINT16 DEBUG;
 
 /******************************************************************************/
 
-#endif /* __INC_DL_ERR */
+DL_ERR _DL_ISO8583_FIELD_Pack ( DL_UINT16                  iField,
+								const DL_ISO8583_MSG      *iMsg,
+								const DL_ISO8583_HANDLER  *iHandler,
+								DL_UINT8                 **ioPtr,
+								DL_UINT16                  isEbcdic );
+
+DL_ERR _DL_ISO8583_FIELD_Unpack ( DL_UINT16                  iField,
+								  DL_ISO8583_MSG            *ioMsg,
+								  const DL_ISO8583_HANDLER  *iHandler,
+								  DL_UINT8                 **ioPtr,
+								  DL_UINT16                  isEbcdic );
+
+DL_ERR _hexstr_to_bytes	(	const char *hexStr,
+                     		DL_UINT8 *output,
+                    		DL_UINT16 *outputLen);
+
+DL_ERR _bytes_to_hexstr(const DL_UINT8 *bytes,
+                     	DL_UINT8 *output,
+                    	DL_UINT16 *outputLen);
+
+DL_ERR _bcd_to_asc(	DL_UINT8 * BcdBuf,
+					DL_UINT8 * AscBuf,
+					DL_UINT16 Len);
+
+/******************************************************************************/
+
+#endif /* __INC_DL_ISO8583_FIELDS */

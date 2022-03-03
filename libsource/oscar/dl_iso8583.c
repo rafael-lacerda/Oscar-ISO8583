@@ -26,9 +26,7 @@
 /*                                                                            */
 /******************************************************************************/
 
-#include "dl_iso8583.h"
-
-//DL_UINT16 DEBUG = 0;
+#include "oscar/dl_iso8583.h"
 
 /******************************************************************************/
 
@@ -210,7 +208,8 @@ DL_ERR DL_ISO8583_MSG_GetField_Bin ( DL_UINT16              iField,
 DL_ERR DL_ISO8583_MSG_Pack ( const DL_ISO8583_HANDLER *iHandler,
 					         const DL_ISO8583_MSG     *iMsg,
 		                     DL_UINT8                 *ioByteArr,
-			                 DL_UINT16                *oNumBytes )
+			                 DL_UINT16                *oNumBytes,
+							 DL_UINT16                 isEbcdic )
 {
 	DL_ERR     err       = kDL_ERR_NONE;
 	DL_UINT8  *curPtr    = ioByteArr;
@@ -226,7 +225,7 @@ DL_ERR DL_ISO8583_MSG_Pack ( const DL_ISO8583_HANDLER *iHandler,
 			 DL_ISO8583_IS_BITMAP(iHandler->fieldArr[fieldIdx].fieldType) ) // bitmap
 		{
 			/* pack field */
-			err = _DL_ISO8583_FIELD_Pack(fieldIdx,iMsg,iHandler,&curPtr);
+			err = _DL_ISO8583_FIELD_Pack(fieldIdx,iMsg,iHandler,&curPtr,isEbcdic);
 			if (err){
 				printf("Error on packing field %d, data: %p.\n",fieldIdx,&curPtr);
 				printf("Field info: %d, %s, %p.\n",iMsg->field[fieldIdx].len,iMsg->field[fieldIdx].ptr,&iMsg->field[fieldIdx].ptr);
@@ -248,7 +247,8 @@ DL_ERR DL_ISO8583_MSG_Pack ( const DL_ISO8583_HANDLER *iHandler,
 DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 					           const DL_UINT8           *iByteArr,
 			                   DL_UINT16                 iByteArrSize,
-			                   DL_ISO8583_MSG           *ioMsg )
+			                   DL_ISO8583_MSG           *ioMsg,
+							   DL_UINT16                 isEbcdic )
 {
 	DL_ERR     err         = kDL_ERR_NONE;
 	DL_UINT8  *curPtr      = (DL_UINT8*)iByteArr;
@@ -276,7 +276,7 @@ DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 			printf("Reading field [%03d]:\n",curFieldIdx);
 		}
 
-		err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
+		err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr,isEbcdic);
 		if ( DL_ISO8583_IS_BITMAP(iHandler->fieldArr[curFieldIdx].fieldType) )
 			haveBitmap = 1;
 		curFieldIdx++;
@@ -294,7 +294,7 @@ DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 				printf("Reading field [%03d]:\n",curFieldIdx);
 			}
 
-			err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr);
+			err = _DL_ISO8583_FIELD_Unpack(curFieldIdx,ioMsg,iHandler,&curPtr,isEbcdic);
 		}
 
 		curFieldIdx++;

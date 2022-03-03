@@ -8,6 +8,7 @@ project (OscarIso8583)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/build/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/build/lib)
@@ -20,10 +21,10 @@ set(TARGET_LIBRARY_NAME ${PROJECT_NAME})
 #
 # Current source file(s) to compile
 #
-file(GLOB HEADER_FILES ${PROJECT_SOURCE_DIR}/include/*.h)
-file(GLOB LIBSRC_FILES ${PROJECT_SOURCE_DIR}/libsource/*.c)
-file(GLOB MAIN_FILE ${PROJECT_SOURCE_DIR}/source/main.cpp)
-message(${LIBSRC_FILES})
+file(GLOB HEADER_FILES ${PROJECT_SOURCE_DIR}/include/*.hpp ${PROJECT_SOURCE_DIR}/include/oscar/*.h)
+file(GLOB LIBSRC_FILES ${PROJECT_SOURCE_DIR}/libsource/*.cpp ${PROJECT_SOURCE_DIR}/libsource/oscar/*.c)
+file(GLOB MAIN_FILE ${PROJECT_SOURCE_DIR}/source/test.cpp)
+# message(${HEADER_FILES})
 
 
 #
@@ -43,18 +44,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${PROJECT_CXXFLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "-Wno-deprecated -Wno-all")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${PROJECT_CXXFLAGS}")
-
-set(Boost_USE_STATIC_LIBS        ON)  # only find static libs
-set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
-set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
-set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost 1.66.0 COMPONENTS asio system)
-if(Boost_FOUND)
-    message("Found Boost.")
-    include_directories(${Boost_INCLUDE_DIRS})
-endif()              
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${PROJECT_CXXFLAGS}")             
 
 #
 # All libraries required to link executables

@@ -1,312 +1,50 @@
-//
-// async_tcp_client.cpp
-// ~~~~~~~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2021 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/read_until.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/write.hpp>
-#include <functional>
 #include <iostream>
 #include <string>
-
-using boost::asio::steady_timer;
-using boost::asio::ip::tcp;
-using std::placeholders::_1;
-using std::placeholders::_2;
-
-//
-// This class manages socket timeouts by applying the concept of a deadline.
-// Some asynchronous operations are given deadlines by which they must complete.
-// Deadlines are enforced by an "actor" that persists for the lifetime of the
-// client object:
-//
-//  +----------------+
-//  |                |
-//  | check_deadline |<---+
-//  |                |    |
-//  +----------------+    | async_wait()
-//              |         |
-//              +---------+
-//
-// If the deadline actor determines that the deadline has expired, the socket
-// is closed and any outstanding operations are consequently cancelled.
-//
-// Connection establishment involves trying each endpoint in turn until a
-// connection is successful, or the available endpoints are exhausted. If the
-// deadline actor closes the socket, the connect actor is woken up and moves to
-// the next endpoint.
-//
-//  +---------------+
-//  |               |
-//  | start_connect |<---+
-//  |               |    |
-//  +---------------+    |
-//           |           |
-//  async_-  |    +----------------+
-// connect() |    |                |
-//           +--->| handle_connect |
-//                |                |
-//                +----------------+
-//                          :
-// Once a connection is     :
-// made, the connect        :
-// actor forks in two -     :
-//                          :
-// an actor for reading     :       and an actor for
-// inbound messages:        :       sending heartbeats:
-//                          :
-//  +------------+          :          +-------------+
-//  |            |<- - - - -+- - - - ->|             |
-//  | start_read |                     | start_write |<---+
-//  |            |<---+                |             |    |
-//  +------------+    |                +-------------+    | async_wait()
-//          |         |                        |          |
-//  async_- |    +-------------+       async_- |    +--------------+
-//   read_- |    |             |       write() |    |              |
-//  until() +--->| handle_read |               +--->| handle_write |
-//               |             |                    |              |
-//               +-------------+                    +--------------+
-//
-// The input actor reads messages from the socket, where messages are delimited
-// by the newline character. The deadline for a complete message is 30 seconds.
-//
-// The heartbeat actor sends a heartbeat (a message that consists of a single
-// newline character) every 10 seconds. In this example, no deadline is applied
-// to message sending.
-//
-
-class client
-{
-	public:
-		client(boost::asio::io_context& io_context)
-			: socket_(io_context),
-			deadline_(io_context),
-			heartbeat_timer_(io_context)
-		{
-		}
-
-		// Called by the user of the client class to initiate the connection process.
-		// The endpoints will have been obtained using a tcp::resolver.
-		void start(tcp::resolver::results_type endpoints)
-		{
-			// Start the connect actor.
-			endpoints_ = endpoints;
-			start_connect(endpoints_.begin());
-
-			// Start the deadline actor. You will note that we're not setting any
-			// particular deadline here. Instead, the connect and input actors will
-			// update the deadline prior to each asynchronous operation.
-			deadline_.async_wait(std::bind(&client::check_deadline, this));
-		}
-
-		// This function terminates all the actors to shut down the connection. It
-		// may be called by the user of the client class, or by the class itself in
-		// response to graceful termination or an unrecoverable error.
-		void stop()
-		{
-			stopped_ = true;
-			boost::system::error_code ignored_error;
-			socket_.close(ignored_error);
-			deadline_.cancel();
-			heartbeat_timer_.cancel();
-		}
-
-	private:
-		void start_connect(tcp::resolver::results_type::iterator endpoint_iter)
-		{
-			if (endpoint_iter != endpoints_.end())
-			{
-			std::cout << "Trying " << endpoint_iter->endpoint() << "...\n";
-
-			// Set a deadline for the connect operation.
-			deadline_.expires_after(std::chrono::seconds(60));
-
-			// Start the asynchronous connect operation.
-			socket_.async_connect(endpoint_iter->endpoint(),
-				std::bind(&client::handle_connect,
-					this, _1, endpoint_iter));
-			}
-			else
-			{
-			// There are no more endpoints to try. Shut down the client.
-			stop();
-			}
-		}
-
-		void handle_connect(const boost::system::error_code& error,
-			tcp::resolver::results_type::iterator endpoint_iter)
-		{
-			if (stopped_)
-			return;
-
-			// The async_connect() function automatically opens the socket at the start
-			// of the asynchronous operation. If the socket is closed at this time then
-			// the timeout handler must have run first.
-			if (!socket_.is_open())
-			{
-				std::cout << "Connect timed out\n";
-
-				// Try the next available endpoint.
-				start_connect(++endpoint_iter);
-			}
-
-			// Check if the connect operation failed before the deadline expired.
-			else if (error)
-			{
-				std::cout << "Connect error: " << error.message() << "\n";
-
-				// We need to close the socket used in the previous connection attempt
-				// before starting a new one.
-				socket_.close();
-
-				// Try the next available endpoint.
-				start_connect(++endpoint_iter);
-			}
-
-			// Otherwise we have successfully established a connection.
-			else
-			{
-				std::cout << "Connected to " << endpoint_iter->endpoint() << "\n";
-
-				// Start the input actor.
-				start_read();
-
-				// Start the heartbeat actor.
-				start_write();
-			}
-		}
-
-		void start_read()
-		{
-			// Set a deadline for the read operation.
-			deadline_.expires_after(std::chrono::seconds(30));
-
-			// Start an asynchronous operation to read a newline-delimited message.
-			boost::asio::async_read_until(socket_,
-				boost::asio::dynamic_buffer(input_buffer_), '\n',
-				std::bind(&client::handle_read, this, _1, _2));
-		}
-
-		void handle_read(const boost::system::error_code& error, std::size_t n)
-		{
-			if (stopped_)
-			return;
-
-			if (!error)
-			{
-				// Extract the newline-delimited message from the buffer.
-				std::string line(input_buffer_.substr(0, n - 1));
-				input_buffer_.erase(0, n);
-
-				// Empty messages are heartbeats and so ignored.
-				if (!line.empty())
-				{
-					std::cout << "Received: " << line << "\n";
-				}
-
-				start_read();
-			}
-			else
-			{
-				std::cout << "Error on receive: " << error.message() << "\n";
-
-				stop();
-			}
-		}
-
-		void start_write()
-		{
-			if (stopped_)
-			return;
-
-			// Start an asynchronous operation to send a heartbeat message.
-			boost::asio::async_write(socket_, boost::asio::buffer("\n", 1),
-				std::bind(&client::handle_write, this, _1));
-		}
-
-		void handle_write(const boost::system::error_code& error)
-		{
-			if (stopped_)
-			return;
-
-			if (!error)
-			{
-				// Wait 10 seconds before sending the next heartbeat.
-				heartbeat_timer_.expires_after(std::chrono::seconds(10));
-				heartbeat_timer_.async_wait(std::bind(&client::start_write, this));
-			}
-			else
-			{
-				std::cout << "Error on heartbeat: " << error.message() << "\n";
-
-				stop();
-			}
-		}
-
-		void check_deadline()
-		{
-			if (stopped_)
-			return;
-
-			// Check whether the deadline has passed. We compare the deadline against
-			// the current time since a new asynchronous operation may have moved the
-			// deadline before this actor had a chance to run.
-			if (deadline_.expiry() <= steady_timer::clock_type::now())
-			{
-				// The deadline has passed. The socket is closed so that any outstanding
-				// asynchronous operations are cancelled.
-				socket_.close();
-
-				// There is no longer an active deadline. The expiry is set to the
-				// maximum time point so that the actor takes no action until a new
-				// deadline is set.
-				deadline_.expires_at(steady_timer::time_point::max());
-			}
-
-			// Put the actor back to sleep.
-			deadline_.async_wait(std::bind(&client::check_deadline, this));
-		}
-
-	private:
-		bool stopped_ = false;
-		tcp::resolver::results_type endpoints_;
-		tcp::socket socket_;
-		std::string input_buffer_;
-		steady_timer deadline_;
-		steady_timer heartbeat_timer_;
-};
+#include <sstream>
+#include <stdio.h>
+#include <iostream>
+#include <boost/asio.hpp>
+#include "../include/iso8583.hpp"
+#include <boost/algorithm/hex.hpp>
 
 int main(int argc, char* argv[])
 {
-  try
-  {
-    if (argc != 3)
-    {
-      std::cerr << "Usage: client <host> <port>\n";
-      return 1;
-    }
+	unsigned char   packBuf[2048];
+	unsigned char   responseBuf[2048];
+	unsigned char   responseBufLen[2];
+	size_t          packedSize;
 
-    boost::asio::io_context io_context;
-    tcp::resolver r(io_context);
-    client c(io_context);
+	std::string hexString = "f0f1f0f07eff460128e1f30af1f6f2f3f0f6f5f0f2f2f8f1f5f8f0f0f5f2f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f1f0f0f0f0f0f0f0f0f0f0f0f1f0f0f0f0f0f0f0f0f0f0f0f1f0f2f0f7f1f4f2f6f0f1f6f1f0f0f0f0f0f0f6f1f9f5f4f0f0f0f4f3f3f0f0f8f1f1f2f6f0f1f0f2f0f7f3f0f0f2f0f2f0f7f0f2f0f7f5f9f9f9f0f5f1f0f0f1f0f6f0f1f2f3f4f5f3f7f2f3f0f6f5f0f2f2f8f1f5f8f0f0f5f27ef3f0f0f2f2f0f6f0f0f0f0f0f4f0f7f0f0f0f0f0f7f5f6f5f6f5f6f0f8f7f6f9f1f2f3f4f5f6f7f8f1f2f3f4f5f6f7f8f9f1f2f3f4f5f540d640d98186819640858840828196409485a294965a4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4bf0f0f7d9f8f0f0f2e3e5f8f4f0f8f4f0f9f8f651da3e15599c3dd4f1f0f75f2a020840820258008407a0000000041010950500000000009a032105249c01009f02060000000033009f10120110a00000044000dac100000000000000009f1a0208409f2608607c7d64313b62fb9f2701809f3303e0e8e89f34034103029f360200419f370411f6d799f0f3f7f0f1f3f3f0f1f2f9f5f0f0f1c9f0c9e8f9f1d1e4d8d3e6c4e9c3d3d8d9d7e8d5c4d7c1d1c4f0f2f1f0f0f0f0f0f0f0f0f0f0f5f0f0f8f4f0f9f0f2f1f0f0f0f9d4c3c7f0f1f1f3f9e9";
+	// size_t packLen = hexString.size()/2;
+	// boost::algorithm::unhex(hexString.begin(),hexString.end(),responseBuf);
 
-    c.start(r.resolve(argv[1], argv[2]));
+	//std::cout << std::string(&responseBuf,packLen) << std::endl;
+	//printf("%s\n",responseBuf);
+	//std::cout << hexStr(responseBuf,packLen) << std::endl << std::endl;
 
-    io_context.run();
-  }
-  catch (std::exception& e)
-  {
-    std::cerr << "Exception: " << e.what() << "\n";
-  }
+	std::unique_ptr<Iso8583> ioMsg(new Iso8583(hexString,1));
 
-  return 0;
+	//ioMsg.unpack(hexString);
+
+
+	ioMsg->print();
+
+	// inputMsg.
+
+	if (ioMsg->haveField(50)){
+		std::cout << "Before DE50: " << ioMsg->getField(50) << std::endl;
+		ioMsg->setField("99999",50);
+		std::cout << "Later DE50: " << ioMsg->getField(50) << std::endl;
+	}
+
+	if (ioMsg->haveField(0)){
+		std::cout << "Before MSGType: " << ioMsg->getField(0) << std::endl;
+		ioMsg->setField("0110",0);
+		std::cout << "Later MSGType: " << ioMsg->getField(0) << std::endl;
+	}
+
+	ioMsg->print();
+
+
+ 	return 0;
 }

@@ -29,9 +29,9 @@
 #ifndef __INC_DL_STR
 #define __INC_DL_STR
 
-#include "dl_base.h"
-#include "dl_err.h"
-#include "dl_mem.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_err.h"
+#include "oscar/dl_mem.h"
 
 #include <string.h>
 

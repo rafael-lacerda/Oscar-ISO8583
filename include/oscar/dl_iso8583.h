@@ -29,14 +29,12 @@
 #ifndef __INC_DL_ISO8583
 #define __INC_DL_ISO8583
 
-#include "dl_base.h"
-#include "dl_err.h"
-#include "dl_str.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_err.h"
+#include "oscar/dl_str.h"
 
-#include "dl_iso8583_common.h"
-#include "dl_iso8583_fields.h"
-
-extern DL_UINT16 DEBUG;
+#include "oscar/dl_iso8583_common.h"
+#include "oscar/dl_iso8583_fields.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,14 +102,16 @@ DL_ERR DL_ISO8583_MSG_GetField_Bin ( DL_UINT16              iField,
 DL_ERR DL_ISO8583_MSG_Pack ( const DL_ISO8583_HANDLER *iHandler,
 					         const DL_ISO8583_MSG     *iMsg,
 		                     DL_UINT8                 *ioByteArr,
-			                 DL_UINT16                *oNumBytes );
+			                 DL_UINT16                *oNumBytes,
+							 DL_UINT16                 isEbcdic );
 
 // NB 'ioMsg' must be initialised (using 'DL_ISO_MSG_Init') before calling
 // returns: error code
 DL_ERR DL_ISO8583_MSG_Unpack ( const DL_ISO8583_HANDLER *iHandler,
 					           const DL_UINT8           *iByteArr,
 			                   DL_UINT16                 iByteArrSize,
-			                   DL_ISO8583_MSG           *ioMsg );
+			                   DL_ISO8583_MSG           *ioMsg,
+							   DL_UINT16                 isEbcdic );
 
 /******************************************************************************/
 
@@ -127,6 +127,7 @@ void DL_ISO8583_MSG_Dump ( FILE                     *iOutFile,
 					       const DL_ISO8583_MSG     *iMsg );
 
 /******************************************************************************/
+
 #ifdef __cplusplus
 }
 #endif

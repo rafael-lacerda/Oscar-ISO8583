@@ -1,6 +1,6 @@
 /******************************************************************************/
 /*                                                                            */
-/* Copyright (C) 2005-2007 Oscar Sanderson                                    */
+/* Copyright (C) 2001-2007 Oscar Sanderson                                    */
 /*                                                                            */
 /* This software is provided 'as-is', without any express or implied          */
 /* warranty.  In no event will the author(s) be held liable for any damages   */
@@ -22,26 +22,55 @@
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
-/* dl_iso8583_defs_1993.h - ISO8583 1993 Definitions                          */
+/* Error code definitions                                                     */
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef __INC_DL_ISO8583_DEFS_1993
-#define __INC_DL_ISO8583_DEFS_1993
+#ifndef __INC_DL_ERR
+#define __INC_DL_ERR
 
-#include "dl_base.h"
-#include "dl_iso8583_common.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-/******************************************************************************/
-
-// sets the specified handler
-void DL_ISO8583_DEFS_1993_GetHandler ( DL_ISO8583_HANDLER *oHandler );
+#include "oscar/dl_base.h"
 
 /******************************************************************************/
-#ifdef __cplusplus
-}
-#endif
-#endif /* __INC_DL_ISO8583_DEFS_1993 */
+//
+// TYPES
+//
+
+typedef DL_UINT32	DL_ERR;
+
+/******************************************************************************/
+//
+// GENERIC ERROR CODES
+//
+
+#define kDL_ERR_NONE					(DL_ERR)0
+
+#define kDL_ERR_OTHER					(DL_ERR)1
+#define kDL_ERR_NOT_IMPLEMENTED			(DL_ERR)2
+
+/******************************************************************************/
+//
+// ALLOCATED ERROR CODES
+//
+
+// 0000-0019	<RESERVED>
+// 0020-0999
+// 1000-1019	dl_mem
+// 1020-1039	dl_cgi
+// 1040-1059	dl_hash
+// 1060-1079	dl_sess
+// 1080-1099	<RFU>
+// 1100-1119	dl_file
+// 1120-1139	dl_dblib
+// 1140-1159	dl_socket
+// 1160-1179	dl_smtp
+// 1180-2499	<RFU>
+// 2500-2519	dl_avl
+// 2520-2999	<RFU>
+// 3000-3019	dl_threadpool
+// 3020-3999	<RFU>
+// 4000-4019	dl_staticQ
+
+/******************************************************************************/
+
+#endif /* __INC_DL_ERR */

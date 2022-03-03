@@ -21,54 +21,52 @@
 /* 3. This notice may not be removed or altered from any source distribution. */
 /*                                                                            */
 /******************************************************************************/
-/*                                                                            */
-/* Timer Module - Providing millisecond level timer capabilities              */
-/*                                                                            */
-/* NB Rollover occurs after 49.7 days due to UINT32 precision                 */
-/*                                                                            */
-/******************************************************************************/
 
-#ifndef __INC_DL_TIMER
-#define __INC_DL_TIMER
+#ifndef __INC_DL_MEM
+#define __INC_DL_MEM
 
-#include "dl_base.h"
-#include "dl_mem.h"
-#include "dl_time.h" // for second level date/time
+#include "oscar/dl_base.h"
+#include "oscar/dl_err.h"
 
-#ifdef DL_WIN32
-#include <windows.h>
-#include <time.h>
-#endif
-
-#ifdef DL_UNIX
-#include <sys/types.h>
-#include <sys/time.h>
-#endif
+#include <string.h>
 
 /******************************************************************************/
 //
-// TYPES
+// ERROR CODES (1000-1019)
 //
 
-struct DL_TIMER_S
-{
-	DL_UINT32 sec;
-	DL_UINT32 msec;
-};
-typedef struct DL_TIMER_S DL_TIMER;
+#define kDL_ERR_MEM_ALLOC	(DL_ERR)(1000+0)
 
 /******************************************************************************/
 
-// Starts/Initialises the specified timer instance
-void DL_TIMER_Start ( DL_TIMER *oTimer );
+#define DL_MEM_free(ptr)\
+{ if ( (ptr) != NULL ) { free(ptr) ; (ptr) = NULL ; } }
 
 /******************************************************************************/
 
-// Returns the duration of the specified timer (in Ms)
-// NB can be called multiple times, to obtain durations at different points
-//    for the same timer instance
-DL_UINT32 DL_TIMER_GetDuration ( DL_TIMER iTimer );
+#define DL_MEM_memset(ptr,value,numBytes)\
+ ((void)memset((void*)(ptr),(int)(value),(size_t)(numBytes)))
+
+#define DL_MEM_memcpy(toPtr,fromPtr,numBytes)\
+ ((void)memcpy((void*)(toPtr),(void*)(fromPtr),(size_t)(numBytes)))
+
+#define DL_MEM_memcmp(aPtr,bPtr,len)\
+ (memcmp((void*)(aPtr),(void*)(bPtr),(size_t)(len)))
 
 /******************************************************************************/
 
-#endif /* __INC_DL_TIMER */
+// allocates a chunk of memory
+// returns: error code
+DL_ERR DL_MEM_malloc ( DL_UINT32   iNumBytes,
+					   void      **oPtr );
+
+/* based on calloc - but does not indicate an error if 0 items requested
+   NB also init's the array elements to 0 on success */
+// returns: error code
+DL_ERR DL_MEM_callocWithInit ( DL_UINT32   numItems,
+							   size_t      itemSize,
+							   void      **out );
+
+/******************************************************************************/
+
+#endif /* __INC_DL_MEM */

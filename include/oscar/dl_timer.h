@@ -21,56 +21,54 @@
 /* 3. This notice may not be removed or altered from any source distribution. */
 /*                                                                            */
 /******************************************************************************/
+/*                                                                            */
+/* Timer Module - Providing millisecond level timer capabilities              */
+/*                                                                            */
+/* NB Rollover occurs after 49.7 days due to UINT32 precision                 */
+/*                                                                            */
+/******************************************************************************/
 
-#include "dl_mem.h"
+#ifndef __INC_DL_TIMER
+#define __INC_DL_TIMER
+
+#include "oscar/dl_base.h"
+#include "oscar/dl_mem.h"
+#include "oscar/dl_time.h" // for second level date/time
+
+#ifdef DL_WIN32
+#include <windows.h>
+#include <time.h>
+#endif
+
+#ifdef DL_UNIX
+#include <sys/types.h>
+#include <sys/time.h>
+#endif
+
+/******************************************************************************/
+//
+// TYPES
+//
+
+struct DL_TIMER_S
+{
+	DL_UINT32 sec;
+	DL_UINT32 msec;
+};
+typedef struct DL_TIMER_S DL_TIMER;
 
 /******************************************************************************/
 
-// allocates a chunk of memory
-// returns: error code
-DL_ERR DL_MEM_malloc ( DL_UINT32   iNumBytes,
-					   void      **oPtr )
-{
-	DL_ERR err = 0;
-
-	err = DL_MEM_callocWithInit(1,iNumBytes,oPtr);
-
-	return err;
-}
-
-/* based on calloc - but does not indicate an error if 0 items requested
-   NB also init's the array elements to 0 on success
-   returns: 1 if ok / 0 otherwise */
-DL_ERR DL_MEM_callocWithInit ( DL_UINT32   numItems,
-							   size_t      itemSize,
-							   void      **out )
-{
-	DL_ERR err = 0;
-
-	/* init output params */
-	*out = NULL;
-
-	/* attempt to allocate memory - if numItems > 0 */
-	if ( numItems > 0 )
-	{
-		/* allocate array - with error check */
-		if ( (*out = (void*)calloc(numItems,itemSize)) == NULL )
-		{	
-			err = kDL_ERR_MEM_ALLOC;
-		}
-		else /* init array elements (to 0) */
-		{
-			DL_MEM_memset(*out,0,numItems*itemSize);
-		}
-	}
-
-	/* cleanup (on error) */
-	if ( err )
-	{
-		DL_MEM_free(*out);
-	}
-
-	return err;
-}
+// Starts/Initialises the specified timer instance
+void DL_TIMER_Start ( DL_TIMER *oTimer );
 
 /******************************************************************************/
+
+// Returns the duration of the specified timer (in Ms)
+// NB can be called multiple times, to obtain durations at different points
+//    for the same timer instance
+DL_UINT32 DL_TIMER_GetDuration ( DL_TIMER iTimer );
+
+/******************************************************************************/
+
+#endif /* __INC_DL_TIMER */

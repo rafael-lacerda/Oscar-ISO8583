@@ -32,9 +32,9 @@
 #ifndef __INC_DL_TIME
 #define __INC_DL_TIME
 
-#include "dl_base.h"
-#include "dl_mem.h"
-#include "dl_str.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_mem.h"
+#include "oscar/dl_str.h"
 
 #include <time.h> // included for 'time'
 

@@ -4,9 +4,9 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "dl_iso8583.h"
-#include "dl_iso8583_defs_1987.h"
-#include "dl_output.h" // for 'DL_OUTPUT_Hex'
+#include <oscar/dl_iso8583.h>
+#include <oscar/dl_iso8583_defs_1987.h>
+#include <oscar/dl_output.h> // for 'DL_OUTPUT_Hex'
 #include <boost/algorithm/hex.hpp>
 #include <stdio.h>
 #include <iostream>
@@ -53,7 +53,7 @@ int main ( void )
 
 	DL_ISO8583_MSG_Init(NULL,0,&isoMsg);
 
-	err = DL_ISO8583_MSG_Unpack(&isoHandler,outBuff,buffLen,&isoMsg);
+	err = DL_ISO8583_MSG_Unpack(&isoHandler,outBuff,buffLen,&isoMsg,EBCDIC);
 	if (err != 0){
 		printf("Error %d ocurred on Unpacking.\n",err);
 	}
@@ -62,7 +62,7 @@ int main ( void )
 	DL_ISO8583_MSG_Dump(stdout,0,&isoHandler,&isoMsg);
 	cout << endl;
 
-	err = DL_ISO8583_MSG_Pack(&isoHandler,&isoMsg,&packBuf[2],&packedSize);
+	err = DL_ISO8583_MSG_Pack(&isoHandler,&isoMsg,&packBuf[2],&packedSize,EBCDIC);
 	if (err != 0){
 		printf("Error %d ocurred on Packing.\n",err);
 	}
@@ -127,7 +127,7 @@ int main ( void )
 
 	DL_ISO8583_MSG_Init(NULL,0,&isoMsg);
 
-	err = DL_ISO8583_MSG_Unpack(&isoHandler,responseBuf,isoSize,&isoMsg);
+	err = DL_ISO8583_MSG_Unpack(&isoHandler,responseBuf,isoSize,&isoMsg,EBCDIC);
 	if (err != 0){
 		printf("Error %d ocurred on Unpacking.\n",err);
 	}

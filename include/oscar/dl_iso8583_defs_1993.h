@@ -22,15 +22,15 @@
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
-/* dl_iso8583_defs_1987.h - ISO8583 1987 Definitions                          */
+/* dl_iso8583_defs_1993.h - ISO8583 1993 Definitions                          */
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef __INC_DL_ISO8583_DEFS_1987
-#define __INC_DL_ISO8583_DEFS_1987
+#ifndef __INC_DL_ISO8583_DEFS_1993
+#define __INC_DL_ISO8583_DEFS_1993
 
-#include "dl_base.h"
-#include "dl_iso8583_common.h"
+#include "oscar/dl_base.h"
+#include "oscar/dl_iso8583_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,11 +38,10 @@ extern "C" {
 /******************************************************************************/
 
 // sets the specified handler
-void DL_ISO8583_DEFS_1987_GetHandler ( DL_ISO8583_HANDLER *oHandler );
+void DL_ISO8583_DEFS_1993_GetHandler ( DL_ISO8583_HANDLER *oHandler );
 
 /******************************************************************************/
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __INC_DL_ISO8583_DEFS_1987 */
+#endif /* __INC_DL_ISO8583_DEFS_1993 */
