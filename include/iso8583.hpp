@@ -10,21 +10,21 @@
 class Iso8583 {
 
     public:
-
     Iso8583();
-    Iso8583(std::string hexString);
-    Iso8583(std::string hexString, size_t isEbcdic);
+    Iso8583(const std::string &hexString);
+    Iso8583(const std::string &hexString, const size_t isEbcdic);
     ~Iso8583();
 
     size_t pack(unsigned char *outputBuffer);
-    size_t unpack(std::string hexString);
-    size_t unpack(unsigned char *messageBytes, size_t *messageLen);
+    size_t unpack(const std::string &hexString);
+    size_t unpack(const unsigned char *messageBytes, size_t &messageLen);
 
-    size_t setEncoding(size_t isEbcdic);
+    size_t setEncoding(const size_t isEbcdic);
 
-    size_t haveField(size_t fieldID);
-    size_t setField(std::string data, size_t fieldID);
-    std::string getField(size_t fieldID);
+    size_t haveField(const size_t fieldID);
+    size_t setField(const std::string &data, const size_t fieldID);
+    size_t unsetField(const size_t fieldID);
+    std::string getField(const size_t fieldID);
 
     void print();
     

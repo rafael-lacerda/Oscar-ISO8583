@@ -420,7 +420,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 	DL_UINT8             *dataPtr  = fieldPtr->ptr;
 	DL_UINT8 			dataPtrEbcdic[actLen];
 	DL_UINT32             reqLen   = iFieldDefPtr->len;
-	DL_UINT8              dataPtrBytes[(actLen/2)+1];
+	DL_UINT8              dataPtrBytes[(actLen/2)];
 	DL_UINT32			 *actLenPtr = &actLen;
 
 	
@@ -457,7 +457,7 @@ DL_ERR _pack_iso_BINARY ( DL_UINT16                    iField,
 		}
 		else if ( actLen == reqLen ) /* exact size */
 		{
-			if (isEbcdic) {
+			if (isEbcdic && iField == 0) {
 				/* copy up to 'required' amount */
 				DL_MEM_memcpy(tmpPtr,dataPtrEbcdic,reqLen);
 				tmpPtr += reqLen;
